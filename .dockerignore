@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+test
+tests
+cctv
+*.db
+.DS_Store
+.pytest_cache
+.coverage
+htmlcov

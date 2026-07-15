@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="app.title">CTV - CCTV Timeline Viewer</title>
+<link rel="stylesheet" href="style.css?v=0.1.13">
+</head>
+<body>
+
+<!-- ═══ Tab bar ═══ -->
+<header id="topbar">
+  <div id="topbar-brand">CTV</div>
+  <nav id="tabs">
+    <button class="tab active" data-tab="timeline" data-i18n="tab.timeline">Timeline</button>
+    <button class="tab" data-tab="cameras" data-i18n="tab.cameras">Cameras</button>
+  </nav>
+  <select id="language-select" data-i18n-title="controls.language" data-i18n-aria-label="controls.language">
+    <option value="en" data-i18n="controls.languageEnglish">English</option>
+    <option value="it" data-i18n="controls.languageItalian">Italiano</option>
+  </select>
+  <div id="topbar-status" data-i18n="status.ready">Ready</div>
+</header>
+
+<!-- ═══ Vista Timeline ═══ -->
+<div id="view-timeline" class="view active">
+  <div id="toolbar">
+    <button id="btn-play" data-i18n-aria-label="controls.playPause" data-i18n-title="controls.playPauseTitle">▶</button>
+    <div class="group" id="event-nav">
+      <button id="btn-prev-frame" data-i18n-aria-label="controls.previousEvent" data-i18n-title="controls.previousEvent">⏮</button>
+      <button id="btn-next-frame" data-i18n-aria-label="controls.nextEvent" data-i18n-title="controls.nextEvent">⏭</button>
+    </div>
+    <select id="speed-select" data-i18n-title="controls.playbackSpeed">
+      <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option><option value="2">2×</option>
+      <option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
+    </select>
+    <div class="toolbar-divider"></div>
+    <div class="group date-nav" id="date-nav">
+      <button id="btn-day-prev" data-i18n-aria-label="controls.previousDay" data-i18n-title="controls.previousDay">‹</button>
+      <input id="timeline-date" type="date" data-i18n-aria-label="controls.timelineDay">
+      <button id="btn-day-next" data-i18n-aria-label="controls.nextDay" data-i18n-title="controls.nextDay">›</button>
+    </div>
+    <button id="btn-today" data-i18n="controls.today" data-i18n-title="controls.goToToday">Today</button>
+    <div id="camera-filter-wrap">
+      <button id="btn-camera-filter" data-i18n="controls.cameraFilter" aria-expanded="false">Cameras</button>
+      <div id="camera-filter-menu" role="menu"></div>
+    </div>
+    <div class="toolbar-divider"></div>
+    <button id="btn-sidebar" data-i18n-aria-label="controls.showHideCameraPanel" data-i18n-title="controls.cameraPanel">☰</button>
+    <select id="layout-select" data-i18n-title="controls.videoLayout" data-i18n-aria-label="controls.videoLayout">
+      <option value="auto">Auto</option>
+      <option value="1x1">1 × 1</option>
+      <option value="2x1">2 × 1</option>
+      <option value="2x2">2 × 2</option>
+      <option value="3x2">3 × 2</option>
+      <option value="3x3">3 × 3</option>
+      <option value="4x3">4 × 3</option>
+      <option value="4x4">4 × 4</option>
+      <option value="hotspot">Hotspot</option>
+      <option value="custom" data-i18n="controls.custom">Custom</option>
+    </select>
+    <div id="custom-grid-controls" hidden>
+      <input id="grid-cols" type="number" min="1" max="8" value="2" data-i18n-aria-label="controls.columns">
+      <span>×</span>
+      <input id="grid-rows" type="number" min="1" max="8" value="2" data-i18n-aria-label="controls.rows">
+    </div>
+    <select id="aspect-select" data-i18n-title="controls.videoAspect" data-i18n-aria-label="controls.videoCellAspect">
+      <option value="4/3">4:3</option>
+      <option value="16/9">16:9</option>
+      <option value="auto">Auto</option>
+      <option value="fill">Fill</option>
+    </select>
+    <div id="page-controls" hidden>
+      <button id="btn-page-prev" data-i18n-aria-label="controls.previousPage">‹</button>
+      <span id="page-display">1/1</span>
+      <button id="btn-page-next" data-i18n-aria-label="controls.nextPage">›</button>
+    </div>
+    <span class="spacer"></span>
+    <div id="time-display">--</div>
+    <span class="spacer"></span>
+    <div class="group" id="zoom-controls">
+      <button id="btn-zoom-in" data-i18n-aria-label="controls.zoomIn" data-i18n-title="controls.zoomIn">+</button>
+      <button id="btn-zoom-out" data-i18n-aria-label="controls.zoomOut" data-i18n-title="controls.zoomOut">−</button>
+      <button id="btn-zoom-fit" data-i18n-aria-label="controls.fitTimeline" data-i18n-title="controls.fitTimeline">↔</button>
+    </div>
+  </div>
+
+  <div id="viewer-workspace">
+    <aside id="viewer-sidebar">
+      <div class="viewer-sidebar-head">
+        <strong data-i18n="tab.cameras">Cameras</strong>
+        <button id="btn-sidebar-close" class="btn-icon" data-i18n-aria-label="controls.closePanel">✕</button>
+      </div>
+      <div id="viewer-camera-list"></div>
+    </aside>
+    <main id="viewer-main">
+      <div id="player-area"></div>
+      <div id="resize-handle" data-i18n-title="controls.resizeTimeline"></div>
+      <div id="timeline-wrap">
+        <div id="timeline-scroll">
+          <div id="timeline-inner">
+            <div id="overview"></div>
+            <div id="timeline-ruler"></div>
+            <div id="timeline-body"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══ Vista Camere ═══ -->
+<div id="view-cameras" class="view">
+  <div id="cameras-layout">
+    <!-- Colonna sinistra: form + ricerca -->
+    <div id="cameras-side">
+      <section>
+        <h3 id="camera-form-title" data-i18n="cameras.add">Add camera</h3>
+        <label for="cam-name" data-i18n="cameras.name">Name</label>
+        <input type="text" id="cam-name" data-i18n-placeholder="cameras.namePlaceholder" placeholder="e.g. Garage">
+        <label for="cam-path" style="margin-top:6px;" data-i18n="cameras.sourcePath">Source path</label>
+        <div class="path-input-row">
+          <input type="text" id="cam-path" data-i18n-placeholder="cameras.sourcePathPlaceholder" placeholder="e.g. /video/garage or ./test/Garage">
+          <button id="btn-browse-source" class="secondary" data-i18n="sources.browse" hidden>Browse</button>
+        </div>
+        <div class="hint" data-i18n="cameras.mountHint">Local directory or SMB/NFS volume already mounted on the server</div>
+        <label for="cam-tz" style="margin-top:6px;">Timezone</label>
+        <input type="text" id="cam-tz" placeholder="auto-detect">
+        <div class="hint" id="cam-tz-hint"></div>
+        <label for="cam-indexing-mode" style="margin-top:6px;" data-i18n="cameras.indexing">Indexing</label>
+        <select id="cam-indexing-mode">
+          <option value="partitioned" data-i18n="cameras.partitioned">Partitioned by date</option>
+          <option value="full" data-i18n="cameras.fullDirectory">Full directory</option>
+        </select>
+        <label for="cam-pattern" style="margin-top:6px;" data-i18n="cameras.directoryPattern">Directory pattern</label>
+        <input type="text" id="cam-pattern" value="{YYYY}/{MM}/{DD}">
+        <div class="hint" data-i18n="cameras.tokens">Tokens: {YYYY}, {YY}, {MM}, {DD}</div>
+        <div class="form-actions">
+          <button id="btn-cancel-edit" class="secondary" data-i18n="cameras.cancel" hidden>Cancel</button>
+          <button id="btn-add-cam" class="primary" data-i18n="cameras.addAction">Add</button>
+        </div>
+      </section>
+      <section>
+        <h3 data-i18n="cameras.actions">Actions</h3>
+        <button id="btn-scan-all" data-i18n="cameras.scanAll">Scan all cameras</button>
+        <button id="btn-search-open" class="secondary" style="margin-top:6px;" data-i18n="cameras.searchRecordings">Search recordings...</button>
+      </section>
+    </div>
+
+    <!-- Colonna destra: lista camere con drag -->
+    <div id="cameras-list-panel">
+      <h3><span data-i18n="tab.cameras">Cameras</span> <span class="hint" data-i18n="cameras.selectEditReorder">Select to edit, drag to reorder</span></h3>
+      <div id="cam-list">
+        <div class="empty-hint" data-i18n="cameras.noneConfigured">No cameras configured</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Search overlay ═══ -->
+<div id="search-overlay">
+  <div id="search-box">
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="search-input" data-i18n-placeholder="search.placeholder" placeholder="Search by filename or camera...">
+      <button id="btn-search-close" class="secondary" data-i18n-aria-label="controls.closeSearch" style="width:auto;">✕</button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<div id="source-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-dialog source-dialog">
+    <div class="modal-head">
+      <h3 data-i18n="sources.title">Select source directory</h3>
+      <button id="btn-source-close" class="btn-icon" data-i18n-aria-label="sources.close">✕</button>
+    </div>
+    <div id="source-current-path"></div>
+    <div id="source-directory-list"></div>
+    <div class="modal-actions">
+      <button id="btn-source-cancel" class="secondary" data-i18n="cameras.cancel">Cancel</button>
+      <button id="btn-source-select" class="primary" data-i18n="sources.select">Select this folder</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="js/i18n.js?v=0.1.13"></script>
+<script src="js/app.js?v=0.1.13"></script>
+<script src="js/timeline.js?v=0.1.13"></script>
+<script src="js/player.js?v=0.1.13"></script>
+<script>
+document.getElementById('btn-prev-frame').onclick = () => jumpToBoundary(-1);
+document.getElementById('btn-next-frame').onclick = () => jumpToBoundary(1);
+if (window._ctvInit) window._ctvInit();
+</script>
+</body>
+</html>

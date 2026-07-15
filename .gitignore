@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+*.log
+.DS_Store
+Thumbs.db
+~/.ctv/
+
+# Local CCTV footage and development-only Home Assistant test bundle.
+/local_test_files/
+/addons/
+/screen mobile/
+
+# Local application state.
+/data/
+/thumbnails/
