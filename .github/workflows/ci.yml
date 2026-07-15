@@ -47,3 +47,8 @@ jobs:
           PY
       - name: Build container
         run: docker build --build-arg BUILD_VERSION=ci -t cctv-viewer:ci .
+      - name: Smoke test container import
+        run: >-
+          docker run --rm --entrypoint python --workdir /data
+          --env PYTHONPATH= cctv-viewer:ci
+          -c "import ctv_server.main; print('ctv_server import: passed')"

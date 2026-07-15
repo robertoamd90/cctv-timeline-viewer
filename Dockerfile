@@ -16,19 +16,19 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ctv_server ./ctv_server
+COPY ctv_server /usr/local/lib/python3.12/site-packages/ctv_server
 COPY ctv_web ./ctv_web
-RUN test -f /app/ctv_server/main.py
+RUN python -c "import ctv_server.main; from pathlib import Path; assert Path('/app/ctv_web/index.html').is_file()"
 
 RUN mkdir -p /root/.ctv /data
 
 ENV CTV_DB=/root/.ctv/ctv.db
 ENV CTV_THUMBNAILS=/root/.ctv/thumbnails
-ENV PYTHONPATH=/app
+ENV CTV_WEB_ROOT=/app/ctv_web
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
 
-CMD ["python", "-m", "uvicorn", "ctv_server.main:app", "--app-dir", "/app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]
+CMD ["python", "-m", "uvicorn", "ctv_server.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]

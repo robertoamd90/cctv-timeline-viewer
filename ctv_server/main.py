@@ -118,7 +118,10 @@ def serve_video(recording_id: int):
 
 
 # ── Frontend statico ──
-web_dir = os.path.join(os.path.dirname(__file__), "..", "ctv_web")
+web_dir = os.environ.get(
+    "CTV_WEB_ROOT",
+    os.path.join(os.path.dirname(__file__), "..", "ctv_web"),
+)
 if os.path.isdir(web_dir):
     app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
 else:
