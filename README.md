@@ -92,12 +92,12 @@ depends on the actual codec; H.264 video in MP4 or MOV is recommended.
 ```text
 ctv_server/    FastAPI backend and SQLite index
 ctv_web/       Vanilla JavaScript frontend
-ctv_viewer/    Public Home Assistant add-on manifest and documentation
+cctv_viewer/   Public Home Assistant add-on manifest and documentation
 scripts/       Development tools
 ```
 
 There is one application source tree: `ctv_server/` and `ctv_web/`.
-`ctv_viewer/config.yaml` is the public Home Assistant add-on manifest, while
+`cctv_viewer/config.yaml` is the public Home Assistant add-on manifest, while
 the root `repository.yaml` describes the add-on repository itself. GitHub
 Actions builds the published multi-architecture image from the root Dockerfile.
 
