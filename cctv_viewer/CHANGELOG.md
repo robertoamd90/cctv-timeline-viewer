@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Allow the source browser to read the `/media` root directory under AppArmor.
+
 ## 0.1.3
 
 - Restore the Cameras administration panel for Home Assistant administrators.

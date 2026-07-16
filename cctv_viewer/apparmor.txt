@@ -18,6 +18,7 @@ profile cctv_viewer flags=(attach_disconnected,mediate_deleted) {
 
   /app/** r,
   /data/** rwk,
+  /media/ r,
   /media/** r,
   /tmp/** rwk,
   /proc/** r,

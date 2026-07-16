@@ -45,6 +45,10 @@ jobs:
           assert app["panel_admin"] is True
           assert str(app["environment"]["CTV_HA_ADMIN_ONLY"]) == "1"
           assert any(item.get("type") == "media" and item.get("read_only") for item in app["map"])
+          with open("cctv_viewer/apparmor.txt", encoding="utf-8") as handle:
+              apparmor = handle.read()
+          assert "/media/ r," in apparmor
+          assert "/media/** r," in apparmor
           PY
       - name: Build container
         run: docker build --build-arg BUILD_VERSION=ci -t cctv-viewer:ci .
