@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Restore the Cameras administration panel for Home Assistant administrators.
+- Let Home Assistant enforce administrator access at the Ingress panel boundary.
+
 ## 0.1.2
 
 - Install the backend package into the container Python environment.

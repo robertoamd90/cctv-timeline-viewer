@@ -11,6 +11,11 @@ def is_home_assistant() -> bool:
     return deployment_mode() == "homeassistant"
 
 
+def home_assistant_admin_only() -> bool:
+    value = os.environ.get("CTV_HA_ADMIN_ONLY", "0").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 def source_roots() -> tuple[str, ...]:
     raw = os.environ.get("CTV_SOURCE_ROOTS", "/media" if is_home_assistant() else "")
     roots = []

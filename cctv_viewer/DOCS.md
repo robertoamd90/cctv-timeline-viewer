@@ -13,9 +13,9 @@ The app receives `/media` read-only, so it cannot modify recordings.
 
 ## Permissions
 
-Home Assistant administrators can add, edit, remove and manually scan cameras.
-Other authenticated users can view every configured camera, search recordings
-and load days from the timeline, but cannot change configuration.
+The app is available only to Home Assistant administrators. Administrators can
+add, edit, remove and manually scan cameras, search recordings and load days
+from the timeline.
 
 ## Data and backups
 

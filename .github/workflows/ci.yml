@@ -42,7 +42,8 @@ jobs:
           assert app["slug"] == "cctv_viewer"
           assert set(app["arch"]) == {"amd64", "aarch64"}
           assert app["ingress"] is True and app["ingress_stream"] is True
-          assert app["panel_admin"] is False
+          assert app["panel_admin"] is True
+          assert str(app["environment"]["CTV_HA_ADMIN_ONLY"]) == "1"
           assert any(item.get("type") == "media" and item.get("read_only") for item in app["map"])
           PY
       - name: Build container

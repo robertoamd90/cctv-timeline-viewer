@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
 
-from ctv_server.config import is_home_assistant
+from ctv_server.config import home_assistant_admin_only, is_home_assistant
 
 log = logging.getLogger("ctv.auth")
 
@@ -90,7 +90,10 @@ async def user_from_request(request: Request) -> CurrentUser:
     user_id = request.headers.get("X-Remote-User-Id", "").strip()
     if not user_id:
         raise HTTPException(status_code=401, detail="Missing Home Assistant ingress identity")
-    is_admin, resolved = await resolve_admin(user_id)
+    if home_assistant_admin_only():
+        is_admin, resolved = True, True
+    else:
+        is_admin, resolved = await resolve_admin(user_id)
     return CurrentUser(
         id=user_id,
         name=request.headers.get("X-Remote-User-Name", "").strip(),

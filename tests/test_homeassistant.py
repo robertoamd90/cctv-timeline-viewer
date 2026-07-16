@@ -66,6 +66,22 @@ class AuthorizationTests(unittest.TestCase):
         self.assertTrue(user.is_admin)
         self.assertEqual(user.id, "abc")
 
+    def test_admin_only_ingress_trusts_supervisor_authorization(self):
+        request = make_request({
+            "X-Remote-User-Id": "abc",
+            "X-Remote-User-Name": "roberto",
+        })
+        with patch.dict(os.environ, {
+            "CTV_DEPLOYMENT": "homeassistant",
+            "CTV_HA_ADMIN_ONLY": "1",
+        }, clear=False), patch(
+            "ctv_server.auth.resolve_admin", new=AsyncMock()
+        ) as resolve:
+            user = asyncio.run(user_from_request(request))
+        self.assertTrue(user.is_admin)
+        self.assertTrue(user.role_resolved)
+        resolve.assert_not_awaited()
+
     def test_missing_ingress_identity_is_rejected(self):
         with patch.dict(os.environ, {"CTV_DEPLOYMENT": "homeassistant"}, clear=False):
             with self.assertRaises(HTTPException) as raised:
