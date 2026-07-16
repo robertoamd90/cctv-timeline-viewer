@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Replace free-text camera timezones with an IANA timezone selector.
+- Preselect the browser timezone for new cameras.
+- Suggest the camera name from the selected source directory.
+- Add a release helper that publishes images before exposing updates to Home Assistant.
+
 ## 0.1.4
 
 - Allow the source browser to read the `/media` root directory under AppArmor.

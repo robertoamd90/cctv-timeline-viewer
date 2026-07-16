@@ -125,9 +125,8 @@
           <button id="btn-browse-source" class="secondary" data-i18n="sources.browse" hidden>Browse</button>
         </div>
         <div class="hint" data-i18n="cameras.mountHint">Local directory or SMB/NFS volume already mounted on the server</div>
-        <label for="cam-tz" style="margin-top:6px;">Timezone</label>
-        <input type="text" id="cam-tz" placeholder="auto-detect">
-        <div class="hint" id="cam-tz-hint"></div>
+        <label for="cam-tz" style="margin-top:6px;" data-i18n="cameras.timezone">Timezone</label>
+        <select id="cam-tz" aria-label="Timezone"></select>
         <label for="cam-indexing-mode" style="margin-top:6px;" data-i18n="cameras.indexing">Indexing</label>
         <select id="cam-indexing-mode">
           <option value="partitioned" data-i18n="cameras.partitioned">Partitioned by date</option>

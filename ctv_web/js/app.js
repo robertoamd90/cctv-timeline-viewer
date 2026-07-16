@@ -614,7 +614,7 @@ function selectCamera(id) {
   document.getElementById('camera-form-title').textContent = t('cameras.edit');
   document.getElementById('cam-name').value = camera.name;
   document.getElementById('cam-path').value = camera.source_path;
-  document.getElementById('cam-tz').value = camera.timezone;
+  setCameraTimezone(camera.timezone);
   document.getElementById('cam-indexing-mode').value = camera.indexing_mode || 'partitioned';
   document.getElementById('cam-pattern').value = camera.directory_pattern || '{YYYY}/{MM}/{DD}';
   document.getElementById('btn-add-cam').textContent = t('cameras.save');
@@ -627,7 +627,7 @@ function resetCameraForm() {
   document.getElementById('camera-form-title').textContent = t('cameras.add');
   document.getElementById('cam-name').value = '';
   document.getElementById('cam-path').value = '';
-  document.getElementById('cam-tz').value = '';
+  setCameraTimezone(DETECTED_TIMEZONE);
   document.getElementById('cam-indexing-mode').value = 'partitioned';
   document.getElementById('cam-pattern').value = '{YYYY}/{MM}/{DD}';
   document.getElementById('btn-add-cam').textContent = t('cameras.addAction');
@@ -783,9 +783,15 @@ document.getElementById('btn-browse-source').onclick = () => {
 document.getElementById('btn-source-close').onclick = closeSourceBrowser;
 document.getElementById('btn-source-cancel').onclick = closeSourceBrowser;
 document.getElementById('btn-source-select').onclick = () => {
-  if (_sourceBrowserPath) document.getElementById('cam-path').value = _sourceBrowserPath;
+  if (_sourceBrowserPath) {
+    document.getElementById('cam-path').value = _sourceBrowserPath;
+    suggestCameraName(_sourceBrowserPath);
+  }
   closeSourceBrowser();
 };
+document.getElementById('cam-path').addEventListener('change', event => {
+  suggestCameraName(event.target.value);
+});
 document.getElementById('source-overlay').addEventListener('click', function(event) {
   if (event.target === this) closeSourceBrowser();
 });
@@ -943,14 +949,47 @@ document.getElementById('btn-add-cam').onclick = async () => {
   await loadCameras();
 };
 
-// Auto-detect browser timezone
-(function() {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  if (tz) {
-    document.getElementById('cam-tz').placeholder = tz;
-    document.getElementById('cam-tz-hint').textContent = t('cameras.detected', {timezone: tz});
+const DETECTED_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+function availableTimezones() {
+  let values = [];
+  if (typeof Intl.supportedValuesOf === 'function') {
+    try { values = Intl.supportedValuesOf('timeZone'); }
+    catch { values = []; }
   }
-})();
+  if (!values.length) {
+    values = ['UTC', 'Europe/London', 'Europe/Paris', 'Europe/Rome', 'America/New_York', 'Asia/Tokyo'];
+  }
+  return [...new Set(['UTC', DETECTED_TIMEZONE, ...values])]
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function setCameraTimezone(timezone) {
+  const select = document.getElementById('cam-tz');
+  const value = timezone || DETECTED_TIMEZONE;
+  if (![...select.options].some(option => option.value === value)) {
+    select.add(new Option(value, value));
+  }
+  select.value = value;
+}
+
+function initializeTimezoneSelect() {
+  const select = document.getElementById('cam-tz');
+  select.replaceChildren(...availableTimezones().map(timezone => new Option(timezone, timezone)));
+  setCameraTimezone(DETECTED_TIMEZONE);
+}
+
+function suggestCameraName(path) {
+  if (S.editingCameraId) return;
+  const input = document.getElementById('cam-name');
+  if (input.value.trim()) return;
+  const normalized = String(path || '').replace(/[\\/]+$/, '');
+  const name = normalized.split(/[\\/]/).pop();
+  if (name) input.value = name;
+}
+
+initializeTimezoneSelect();
 
 document.getElementById('btn-scan-all').onclick = async () => {
   document.getElementById('topbar-status').textContent = t('cameras.scanRunning');

@@ -30,6 +30,7 @@ jobs:
           node --check ctv_web/js/app.js
           node --check ctv_web/js/timeline.js
           node --check ctv_web/js/player.js
+          sh -n scripts/release.sh
       - name: Validate Home Assistant app metadata
         run: |
           python - <<'PY'
