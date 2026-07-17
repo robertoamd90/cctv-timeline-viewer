@@ -5,7 +5,7 @@
 # Usage:
 #   1. Update cctv_viewer/config.yaml and CHANGELOG.md.
 #   2. Commit the release locally, but do not push main.
-#   3. Run: ./scripts/release.sh 0.1.5
+#   3. Run: ./scripts/release.sh X.Y.Z
 #
 # The script validates the commit on a temporary branch, publishes the tag and
 # waits for GHCR, then advances main. Home Assistant therefore discovers the

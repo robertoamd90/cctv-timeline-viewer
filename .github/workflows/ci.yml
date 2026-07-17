@@ -27,9 +27,13 @@ jobs:
       - name: Check frontend JavaScript
         run: |
           node --check ctv_web/js/i18n.js
+          node --check ctv_web/js/hotspot.js
+          node --check ctv_web/js/geometry.js
           node --check ctv_web/js/app.js
           node --check ctv_web/js/timeline.js
           node --check ctv_web/js/player.js
+          node tests/test_hotspot.js
+          node tests/test_geometry.js
           sh -n scripts/release.sh
       - name: Validate Home Assistant app metadata
         run: |

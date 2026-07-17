@@ -1,5 +1,5 @@
 name: CCTV Viewer
-version: "0.1.5"
+version: "0.1.6"
 slug: cctv_viewer
 description: Browse and synchronize CCTV recordings on a shared timeline
 url: https://github.com/robertoamd90/cctv-timeline-viewer

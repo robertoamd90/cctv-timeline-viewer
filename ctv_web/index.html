@@ -60,6 +60,10 @@
       <option value="hotspot">Hotspot</option>
       <option value="custom" data-i18n="controls.custom">Custom</option>
     </select>
+    <label id="auto-hotspot-control" hidden>
+      <input id="auto-hotspot-toggle" type="checkbox">
+      <span data-i18n="controls.autoHotspot">Auto hotspot</span>
+    </label>
     <div id="custom-grid-controls" hidden>
       <input id="grid-cols" type="number" min="1" max="8" value="2" data-i18n-aria-label="controls.columns">
       <span>×</span>
@@ -185,10 +189,12 @@
 
 <div id="toast"></div>
 
-<script src="js/i18n.js?v=0.1.13"></script>
-<script src="js/app.js?v=0.1.13"></script>
-<script src="js/timeline.js?v=0.1.13"></script>
-<script src="js/player.js?v=0.1.13"></script>
+<script src="js/i18n.js?v=0.1.14"></script>
+<script src="js/hotspot.js?v=0.1.14"></script>
+<script src="js/geometry.js?v=0.1.14"></script>
+<script src="js/app.js?v=0.1.14"></script>
+<script src="js/timeline.js?v=0.1.14"></script>
+<script src="js/player.js?v=0.1.14"></script>
 <script>
 document.getElementById('btn-prev-frame').onclick = () => jumpToBoundary(-1);
 document.getElementById('btn-next-frame').onclick = () => jumpToBoundary(1);

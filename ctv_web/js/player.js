@@ -155,6 +155,30 @@ function findRecordingAt(cameraId, ts) {
   return cam.segments.find(s => ts >= s.start_ts && (s.end_ts == null || ts < s.end_ts)) || null;
 }
 
+function syncAutoHotspotAtCurrentTime() {
+  if (!S.autoHotspot || S.layoutMode !== 'hotspot' || !S.timeline || S.currentTime == null) return;
+  const visibleIds = visibleCameras().map(camera => camera.id);
+  const candidate = hotspotCurrentCandidate(S.timeline.cameras, visibleIds, S.currentTime);
+  if (candidate != null && candidate !== S.hotspotOrder[0]) {
+    promoteHotspotCamera(candidate, false);
+  }
+}
+
+function updateAutoHotspot(previousTime, currentTime) {
+  if (!S.autoHotspot || S.layoutMode !== 'hotspot' || !S.timeline || currentTime == null) return;
+  const visibleIds = visibleCameras().map(camera => camera.id);
+  const started = hotspotStartCandidate(S.timeline.cameras, visibleIds, previousTime, currentTime);
+  if (started != null) {
+    if (started !== S.hotspotOrder[0]) promoteHotspotCamera(started, false);
+    return;
+  }
+
+  const primary = S.hotspotOrder[0];
+  if (primary != null && findRecordingAt(primary, currentTime)) return;
+  const fallback = hotspotCameras().find(camera => findRecordingAt(camera.id, currentTime));
+  if (fallback && fallback.id !== primary) promoteHotspotCamera(fallback.id, false);
+}
+
 // ── Seek ──
 function seekPlayersToTime() {
   let needsRender = false;
@@ -195,10 +219,12 @@ function onVideoEnded(videoEl, expectedRecId = videoEl.dataset.recording) {
   cell.dataset.transitioning = curRecId;
   videoEl.onended = videoEl.onwaiting = videoEl.onstalled = null;
   const boundary = ended.end_ts ?? (ended.start_ts + (ended.duration || 0));
+  const previousTime = S.currentTime;
   S.currentTime = Math.max(S.currentTime || 0, boundary + 0.001);
   _clockStartTime = S.currentTime;
   _clockStartWall = performance.now();
   updateTimeDisplay(); updateCursor();
+  updateAutoHotspot(previousTime, S.currentTime);
   reconcilePlaybackPosition();
 }
 
@@ -287,7 +313,7 @@ document.getElementById('btn-play').onclick = () => {
   if (S.currentTime == null && S.timeline) {
     const firstSeg = S.timeline.cameras[0]?.segments[0];
     if (firstSeg) S.currentTime = firstSeg.start_ts;
-    renderPlayers(); updateCursor(); updateTimeDisplay();
+    syncAutoHotspotAtCurrentTime(); renderPlayers(); updateCursor(); updateTimeDisplay();
   }
   if (S.currentTime == null) {
     toast(t('player.noneForDay'), 'error');
@@ -359,6 +385,7 @@ function clockTick() {
     _clockStartWall = performance.now();
   }
 
+  const previousTime = S.currentTime;
   if (S.speed > 4 && videos.length) {
     const master = videos[0];
     const recordingStart = parseFloat(master.parentElement.dataset.start);
@@ -385,6 +412,7 @@ function clockTick() {
   }
   updateTimeDisplay();
   updateCursor();
+  updateAutoHotspot(previousTime, S.currentTime);
 
   // Auto-scroll
   if (S.zoomRange && S.timeline) {
@@ -421,10 +449,12 @@ function reconcilePlaybackPosition() {
       });
     });
     if (nextStart === Infinity) { stopPlayback(); return; }
+    const previousTime = S.currentTime;
     S.currentTime = nextStart + 0.001;
     _clockStartTime = S.currentTime;
     _clockStartWall = performance.now();
     updateTimeDisplay(); updateCursor();
+    updateAutoHotspot(previousTime, S.currentTime);
   }
 
   const needsRender = displayed.some(c => {

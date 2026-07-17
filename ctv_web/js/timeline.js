@@ -173,6 +173,7 @@ function renderRows(vFrom, vTo, segW, rW) {
 // ── Tooltip ──
 let _ttEl;
 let _ttHideTimer;
+let _ttPoint = null;
 function hideTooltip() { if (_ttEl) { _ttEl.style.display = 'none'; _ttEl.innerHTML = ''; } }
 // Nascondi tooltip su scroll e quando il mouse esce dall'area timeline
 (function() {
@@ -195,8 +196,26 @@ function showSegTooltip(e) {
   h += `<div class="tt-meta">${fmtTime(st)}${en ? ' → '+fmtTimeShort(en) : ''}</div>`;
   h += `</div>`;
   _ttEl.innerHTML = h; _ttEl.style.display = 'block'; moveSegTooltip(e);
+  const image = _ttEl.querySelector('img');
+  if (image) image.addEventListener('load', () => {
+    if (_ttPoint && _ttEl.style.display !== 'none') positionSegTooltip(_ttPoint.x, _ttPoint.y);
+  }, { once: true });
 }
-function moveSegTooltip(e) { if (_ttEl && _ttEl.style.display !== 'none') { _ttEl.style.left = (e.clientX+14)+'px'; _ttEl.style.top = (e.clientY-72)+'px'; } }
+function positionSegTooltip(clientX, clientY) {
+  const rect = _ttEl.getBoundingClientRect();
+  const position = viewportPopoverPosition(
+    { x: clientX, y: clientY },
+    { width: rect.width, height: rect.height },
+    { width: window.innerWidth, height: window.innerHeight },
+  );
+  _ttEl.style.left = `${position.left}px`;
+  _ttEl.style.top = `${position.top}px`;
+}
+function moveSegTooltip(e) {
+  if (!_ttEl || _ttEl.style.display === 'none') return;
+  _ttPoint = { x: e.clientX, y: e.clientY };
+  positionSegTooltip(e.clientX, e.clientY);
+}
 // ── Playhead ──
 function ensurePlayhead() {
   if (!document.getElementById('playhead')) {
@@ -407,7 +426,7 @@ function seekTo(ts) {
       renderTimeline();
     }
   }
-  updateCursor(); updateTimeDisplay(); seekPlayersToTime();
+  syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); seekPlayersToTime();
 }
 
 // ── Jump confini (solo inizio registrazioni, non fine) ──
@@ -434,5 +453,5 @@ function jumpToBoundary(direction) {
       renderTimeline();
     }
   }
-  updateCursor(); updateTimeDisplay(); renderPlayers();
+  syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); renderPlayers();
 }

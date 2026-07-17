@@ -28,6 +28,8 @@ const S = {
   pageSize: 1,
   focusCameraId: null,
   hotspotPrimaryId: null,
+  hotspotOrder: [],
+  autoHotspot: localStorage.getItem('ctv-auto-hotspot') === '1',
   hotspotSideCols: 1,
   hotspotSideRows: 1,
   hotspotMobile: false,
@@ -53,15 +55,19 @@ function visibleCameras() {
   return S.cameras.filter(camera => S.visibleCameraIds.includes(camera.id));
 }
 
-function displayedCameras() {
+function hotspotCameras() {
   const cameras = visibleCameras();
+  const ids = cameras.map(camera => camera.id);
+  S.hotspotOrder = hotspotPromotedOrder(S.hotspotOrder, null, ids);
+  const byId = new Map(cameras.map(camera => [camera.id, camera]));
+  return S.hotspotOrder.map(id => byId.get(id)).filter(Boolean);
+}
+
+function displayedCameras() {
+  const cameras = S.layoutMode === 'hotspot' ? hotspotCameras() : visibleCameras();
   if (S.focusCameraId) return cameras.filter(camera => camera.id === S.focusCameraId);
   const start = S.page * S.pageSize;
   const page = cameras.slice(start, start + S.pageSize);
-  if (S.layoutMode === 'hotspot' && S.hotspotPrimaryId) {
-    const primaryIndex = page.findIndex(camera => camera.id === S.hotspotPrimaryId);
-    if (primaryIndex > 0) page.unshift(page.splice(primaryIndex, 1)[0]);
-  }
   return page;
 }
 
@@ -412,19 +418,46 @@ function showCameraPage(id) {
   const index = visibleCameras().findIndex(camera => camera.id === id);
   if (index < 0) return;
   S.focusCameraId = null;
-  S.page = Math.floor(index / S.pageSize);
-  if (S.layoutMode === 'hotspot') S.hotspotPrimaryId = id;
+  if (S.layoutMode === 'hotspot') {
+    promoteHotspotCamera(id, true, false);
+    S.page = 0;
+  } else {
+    S.page = Math.floor(index / S.pageSize);
+  }
   updateGridLayout(); renderPlayers(); renderViewerCameraList();
   if (isCompactViewport()) setSidebarCollapsed(true, false);
 }
 
-function promoteHotspotCamera(id) {
+function setAutoHotspot(enabled, persist = true) {
+  S.autoHotspot = Boolean(enabled);
+  const toggle = document.getElementById('auto-hotspot-toggle');
+  if (toggle) toggle.checked = S.autoHotspot;
+  if (persist) localStorage.setItem('ctv-auto-hotspot', S.autoHotspot ? '1' : '0');
+  if (S.autoHotspot && S.layoutMode === 'hotspot' && typeof syncAutoHotspotAtCurrentTime === 'function') {
+    syncAutoHotspotAtCurrentTime();
+  }
+}
+
+function updateAutoHotspotControl() {
+  const control = document.getElementById('auto-hotspot-control');
+  control.hidden = S.layoutMode !== 'hotspot';
+  document.getElementById('auto-hotspot-toggle').checked = S.autoHotspot;
+}
+
+function promoteHotspotCamera(id, manual = true, rerender = true) {
   if (S.layoutMode !== 'hotspot' || S.focusCameraId) return;
+  if (manual) setAutoHotspot(false);
+  const validIds = visibleCameras().map(camera => camera.id);
+  S.hotspotOrder = hotspotPromotedOrder(S.hotspotOrder, id, validIds);
   S.hotspotPrimaryId = id;
-  renderPlayers(); renderViewerCameraList();
+  S.page = 0;
+  if (rerender) {
+    updateGridLayout(); renderPlayers(); renderViewerCameraList();
+  }
 }
 
 function toggleCameraFocus(id) {
+  if (S.layoutMode === 'hotspot') setAutoHotspot(false);
   S.focusCameraId = S.focusCameraId === id ? null : id;
   updateGridLayout(); renderPlayers(); renderViewerCameraList();
 }
@@ -466,13 +499,19 @@ document.getElementById('aspect-select').value = S.aspectMode;
 document.getElementById('grid-cols').value = S.customCols;
 document.getElementById('grid-rows').value = S.customRows;
 document.getElementById('custom-grid-controls').hidden = S.layoutMode !== 'custom';
+updateAutoHotspotControl();
+document.getElementById('auto-hotspot-toggle').onchange = event => {
+  setAutoHotspot(event.target.checked);
+};
 
 document.getElementById('layout-select').onchange = event => {
   S.layoutMode = event.target.value; S.page = 0; S.focusCameraId = null;
   S.hotspotPrimaryId = null;
   localStorage.setItem('ctv-layout', S.layoutMode);
   document.getElementById('custom-grid-controls').hidden = S.layoutMode !== 'custom';
+  updateAutoHotspotControl();
   updateGridLayout(); renderPlayers(); renderViewerCameraList();
+  if (S.autoHotspot && S.layoutMode === 'hotspot') syncAutoHotspotAtCurrentTime();
 };
 document.getElementById('aspect-select').onchange = event => {
   S.aspectMode = event.target.value;
@@ -713,6 +752,7 @@ async function loadTimeline(from, to, prepare = true) {
   }
   updateGridLayout();
   renderTimeline();
+  if (S.autoHotspot && S.layoutMode === 'hotspot') syncAutoHotspotAtCurrentTime();
   renderPlayers();
   updateTimeDisplay();
 }

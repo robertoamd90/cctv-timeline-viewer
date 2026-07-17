@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+- Keep timeline previews inside the visible viewport.
+- Add an explicit Auto Hotspot toggle.
+- Promote the camera whose segment starts most recently during playback.
+- Return to manual hotspot selection when the user chooses a camera.
+
 ## 0.1.5
 
 - Replace free-text camera timezones with an IANA timezone selector.
