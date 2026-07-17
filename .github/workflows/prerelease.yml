@@ -39,5 +39,5 @@ jobs:
           push: true
           build-args: BUILD_VERSION=${{ steps.version.outputs.value }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cctv-viewer:beta
-            ghcr.io/${{ github.repository_owner }}/cctv-viewer:${{ steps.version.outputs.value }}
+            ghcr.io/${{ github.repository_owner }}/cctv-viewer-beta:${{ steps.version.outputs.value }}
+            ghcr.io/${{ github.repository_owner }}/cctv-viewer-beta:latest

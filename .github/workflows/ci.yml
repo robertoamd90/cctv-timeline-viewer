@@ -48,7 +48,8 @@ jobs:
           assert repository["name"] and repository["url"]
           assert app["slug"] == "cctv_viewer"
           assert beta["slug"] == "cctv_viewer_beta"
-          assert beta["image"].endswith(":beta")
+          assert beta["image"] == "ghcr.io/robertoamd90/cctv-viewer-beta"
+          assert ":" not in beta["image"].split("/", 1)[-1]
           assert set(app["arch"]) == {"amd64", "aarch64"}
           assert set(beta["arch"]) == {"amd64", "aarch64"}
           assert app["ingress"] is True and app["ingress_stream"] is True

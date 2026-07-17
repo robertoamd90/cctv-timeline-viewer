@@ -12,7 +12,7 @@ init: false
 legacy: true
 apparmor: true
 stage: experimental
-image: ghcr.io/robertoamd90/cctv-viewer:beta
+image: ghcr.io/robertoamd90/cctv-viewer-beta
 ingress: true
 ingress_port: 8000
 ingress_stream: true

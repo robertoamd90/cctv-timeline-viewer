@@ -28,8 +28,8 @@ Home Assistant OS and Supervised are the primary supported deployments.
 4. Configure each camera from the app using a source directory under `/media`.
 
 The repository also exposes **CCTV Viewer Beta** for testing the upcoming
-release line. It uses separate app data and the mutable `:beta` container tag,
-so it can be installed alongside the stable app without changing it.
+release line. It uses separate app data and the `cctv-viewer-beta` container
+image, so it can be installed alongside the stable app without changing it.
 
 The add-on mounts Home Assistant Media read-only. Configure SMB/NFS storage in
 Home Assistant first; CCTV Viewer does not mount network shares or store their
