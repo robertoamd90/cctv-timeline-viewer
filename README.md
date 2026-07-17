@@ -27,6 +27,10 @@ Home Assistant OS and Supervised are the primary supported deployments.
 3. Install **CCTV Viewer**, start it, and enable **Show in sidebar**.
 4. Configure each camera from the app using a source directory under `/media`.
 
+The repository also exposes **CCTV Viewer Beta** for testing the upcoming
+release line. It uses separate app data and the mutable `:beta` container tag,
+so it can be installed alongside the stable app without changing it.
+
 The add-on mounts Home Assistant Media read-only. Configure SMB/NFS storage in
 Home Assistant first; CCTV Viewer does not mount network shares or store their
 credentials. The Home Assistant app is restricted to administrators, who can
@@ -92,6 +96,7 @@ depends on the actual codec; H.264 video in MP4 or MOV is recommended.
 ctv_server/    FastAPI backend and SQLite index
 ctv_web/       Vanilla JavaScript frontend
 cctv_viewer/   Public Home Assistant add-on manifest and documentation
+cctv_viewer_beta/ Beta Home Assistant add-on manifest and documentation
 scripts/       Development tools
 ```
 
@@ -99,6 +104,10 @@ There is one application source tree: `ctv_server/` and `ctv_web/`.
 `cctv_viewer/config.yaml` is the public Home Assistant add-on manifest, while
 the root `repository.yaml` describes the add-on repository itself. GitHub
 Actions builds the published multi-architecture image from the root Dockerfile.
+The `main` branch is the stable line. The persistent `pre-release` branch is
+the beta line; pushes to it publish the beta image. A promotion is done by
+opening a pull request from `pre-release` to `main`, then creating a stable
+`vX.Y.Z` tag on the merged commit.
 
 For a local Supervisor build without publishing an image, run this from the
 repository root:

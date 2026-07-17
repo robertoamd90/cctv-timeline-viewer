@@ -43,9 +43,14 @@ jobs:
               repository = yaml.safe_load(handle)
           with open("cctv_viewer/config.yaml", encoding="utf-8") as handle:
               app = yaml.safe_load(handle)
+          with open("cctv_viewer_beta/config.yaml", encoding="utf-8") as handle:
+              beta = yaml.safe_load(handle)
           assert repository["name"] and repository["url"]
           assert app["slug"] == "cctv_viewer"
+          assert beta["slug"] == "cctv_viewer_beta"
+          assert beta["image"].endswith(":beta")
           assert set(app["arch"]) == {"amd64", "aarch64"}
+          assert set(beta["arch"]) == {"amd64", "aarch64"}
           assert app["ingress"] is True and app["ingress_stream"] is True
           assert app["panel_admin"] is True
           assert str(app["environment"]["CTV_HA_ADMIN_ONLY"]) == "1"
