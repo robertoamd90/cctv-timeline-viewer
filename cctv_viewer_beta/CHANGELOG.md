@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.7-beta.1
+## 0.1.7
 
 - Preview channel for upcoming CCTV Viewer features.
 
