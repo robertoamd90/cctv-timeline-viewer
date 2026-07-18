@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8
+
+- Place the Auto Hotspot toggle in the mobile view-controls row.
+- Keep the full Auto Hotspot label on desktop and use a compact mobile label.
+
 ## 0.1.7
 
 - Preview channel for upcoming CCTV Viewer features.

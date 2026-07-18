@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="app.title">CTV - CCTV Timeline Viewer</title>
-<link rel="stylesheet" href="style.css?v=0.1.15">
+<link rel="stylesheet" href="style.css?v=0.1.16">
 </head>
 <body>
 
@@ -42,28 +42,31 @@
       <button id="btn-day-next" data-i18n-aria-label="controls.nextDay" data-i18n-title="controls.nextDay">›</button>
     </div>
     <button id="btn-today" data-i18n="controls.today" data-i18n-title="controls.goToToday">Today</button>
-    <div id="camera-filter-wrap">
-      <button id="btn-camera-filter" data-i18n="controls.cameraFilter" aria-expanded="false">Cameras</button>
-      <div id="camera-filter-menu" role="menu"></div>
-    </div>
     <div class="toolbar-divider"></div>
     <button id="btn-sidebar" data-i18n-aria-label="controls.showHideCameraPanel" data-i18n-title="controls.cameraPanel">☰</button>
-    <select id="layout-select" data-i18n-title="controls.videoLayout" data-i18n-aria-label="controls.videoLayout">
-      <option value="auto">Auto</option>
-      <option value="1x1">1 × 1</option>
-      <option value="2x1">2 × 1</option>
-      <option value="2x2">2 × 2</option>
-      <option value="3x2">3 × 2</option>
-      <option value="3x3">3 × 3</option>
-      <option value="4x3">4 × 3</option>
-      <option value="4x4">4 × 4</option>
-      <option value="hotspot">Hotspot</option>
-      <option value="custom" data-i18n="controls.custom">Custom</option>
-    </select>
-    <label id="auto-hotspot-control" hidden>
-      <input id="auto-hotspot-toggle" type="checkbox">
-      <span data-i18n="controls.autoHotspot">Auto hotspot</span>
-    </label>
+    <div id="view-controls">
+      <select id="layout-select" data-i18n-title="controls.videoLayout" data-i18n-aria-label="controls.videoLayout">
+        <option value="auto">Auto</option>
+        <option value="1x1">1 × 1</option>
+        <option value="2x1">2 × 1</option>
+        <option value="2x2">2 × 2</option>
+        <option value="3x2">3 × 2</option>
+        <option value="3x3">3 × 3</option>
+        <option value="4x3">4 × 3</option>
+        <option value="4x4">4 × 4</option>
+        <option value="hotspot">Hotspot</option>
+        <option value="custom" data-i18n="controls.custom">Custom</option>
+      </select>
+      <div id="camera-filter-wrap">
+        <button id="btn-camera-filter" data-i18n="controls.cameraFilter" aria-expanded="false">Cameras</button>
+        <div id="camera-filter-menu" role="menu"></div>
+      </div>
+      <label id="auto-hotspot-control" hidden>
+        <input id="auto-hotspot-toggle" type="checkbox">
+        <span class="auto-hotspot-label-long" data-i18n="controls.autoHotspot">Auto hotspot</span>
+        <span class="auto-hotspot-label-short">Auto</span>
+      </label>
+    </div>
     <div id="custom-grid-controls" hidden>
       <input id="grid-cols" type="number" min="1" max="8" value="2" data-i18n-aria-label="controls.columns">
       <span>×</span>

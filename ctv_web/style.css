@@ -89,6 +89,8 @@ body {
 #custom-grid-controls, #page-controls { display: flex; align-items: center; gap: 4px; }
 #custom-grid-controls[hidden], #page-controls[hidden] { display: none; }
 #custom-grid-controls input { width: 42px; text-align: center; }
+#view-controls { display: contents; }
+.auto-hotspot-label-short { display: none; }
 #auto-hotspot-control {
   display: inline-flex; align-items: center; justify-self: start; align-self: center;
   gap: 6px; width: max-content; max-width: 100%; margin: 0;
@@ -446,9 +448,19 @@ button.secondary { background: var(--surface2); border: 1px solid var(--border);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; text-align: center;
   }
   .date-nav { grid-row: 2; grid-column: 1 / 4; width: 100%; min-width: 0; }
-  #layout-select { grid-row: 3; grid-column: 1 / 3; width: 100% !important; min-width: 0; }
-  #camera-filter-wrap { grid-row: 3; grid-column: 3 / 5; width: 100%; min-width: 0; }
-  #auto-hotspot-control { grid-row: 4; grid-column: 1 / 3; min-height: 38px; }
+  #view-controls {
+    display: grid; grid-row: 3; grid-column: 1 / 5;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
+    align-items: center; gap: 5px; min-width: 0;
+  }
+  #layout-select { width: 100% !important; min-width: 0; }
+  #camera-filter-wrap { width: 100%; min-width: 0; }
+  #auto-hotspot-control {
+    width: 100%; min-height: 42px; padding-inline: 9px;
+    justify-self: stretch; justify-content: center;
+  }
+  .auto-hotspot-label-long { display: none; }
+  .auto-hotspot-label-short { display: inline; }
   #btn-camera-filter { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .date-nav input { flex: 1 1 0; width: 0 !important; min-width: 0; padding-inline: 3px !important; }
   .date-nav button { flex: 0 0 34px; }
@@ -490,9 +502,12 @@ button.secondary { background: var(--surface2); border: 1px solid var(--border);
   #zoom-controls { grid-row: 1; grid-column: 4; width: 134px; justify-self: start; }
   #time-display { grid-row: 1; grid-column: 5; }
   .date-nav { grid-row: 2; grid-column: 1 / 4; }
+  #view-controls { display: contents; }
   #layout-select { grid-row: 2; grid-column: 4; width: 134px !important; }
   #camera-filter-wrap { grid-row: 2; grid-column: 5; width: 160px; justify-self: start; }
   #auto-hotspot-control { grid-row: 3; grid-column: 4 / 6; justify-self: start; }
+  .auto-hotspot-label-long { display: inline; }
+  .auto-hotspot-label-short { display: none; }
   #page-controls { grid-row: 2; grid-column: 5; justify-self: end; }
 }
 
