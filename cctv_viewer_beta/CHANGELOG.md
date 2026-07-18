@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9
+
+- Keep the full Auto Hotspot label on mobile when space is available.
+- Truncate the label with an ellipsis on narrower screens without changing the toolbar height.
+- Expose the complete label through the control title and accessibility metadata.
+
 ## 0.1.8
 
 - Place the Auto Hotspot toggle in the mobile view-controls row.

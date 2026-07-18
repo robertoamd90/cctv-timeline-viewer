@@ -5,6 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="app.title">CTV - CCTV Timeline Viewer</title>
 <link rel="stylesheet" href="style.css?v=0.1.16">
+<style>
+@media (max-width: 760px), (max-width: 900px) and (max-height: 500px) {
+  #view-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(112px, 0.9fr);
+  }
+  #auto-hotspot-control {
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    justify-self: stretch;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+  #auto-hotspot-control input {
+    flex: 0 0 auto;
+  }
+  #auto-hotspot-control .auto-hotspot-label-long {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #auto-hotspot-control .auto-hotspot-label-short {
+    display: none;
+  }
+}
+</style>
 </head>
 <body>
 
@@ -61,7 +89,7 @@
         <button id="btn-camera-filter" data-i18n="controls.cameraFilter" aria-expanded="false">Cameras</button>
         <div id="camera-filter-menu" role="menu"></div>
       </div>
-      <label id="auto-hotspot-control" hidden>
+      <label id="auto-hotspot-control" hidden data-i18n-title="controls.autoHotspot" data-i18n-aria-label="controls.autoHotspot">
         <input id="auto-hotspot-toggle" type="checkbox">
         <span class="auto-hotspot-label-long" data-i18n="controls.autoHotspot">Auto hotspot</span>
         <span class="auto-hotspot-label-short">Auto</span>
