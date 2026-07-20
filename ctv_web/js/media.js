@@ -15,10 +15,11 @@
     return currentTime >= expectedDuration - 0.5;
   }
 
-  function hasProgressiveDuration(reportedDuration, expectedDuration) {
-    return Number.isFinite(reportedDuration) && reportedDuration > 0 &&
-      Number.isFinite(expectedDuration) && expectedDuration > reportedDuration + 0.5;
+  function requiredPlaybackBuffer(speed, currentTime, expectedDuration) {
+    const desired = speed >= 8 ? 4 : speed >= 4 ? 2 : 0.75;
+    if (!Number.isFinite(expectedDuration)) return desired;
+    return Math.min(desired, Math.max(0, expectedDuration - currentTime - 0.5));
   }
 
-  return { safeSeekTarget, playbackCompleted, hasProgressiveDuration };
+  return { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer };
 });

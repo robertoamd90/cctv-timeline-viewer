@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import mimetypes
+import re
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -12,6 +13,7 @@ from ctv_server.db import init_db, get_db
 from ctv_server.api import cameras, recordings, scan, timeline, search, events, system
 from ctv_server.auth import user_from_request
 from ctv_server.config import is_home_assistant, trusted_ingress_proxies
+from ctv_server.mp4 import file_duration_patches, patch_chunk
 
 # ── Logging ──
 logging.basicConfig(
@@ -25,6 +27,47 @@ log = logging.getLogger("ctv")
 class VideoFileResponse(FileResponse):
     # Larger sequential reads reduce SMB and proxy overhead during multi-camera fast playback.
     chunk_size = 1024 * 1024
+
+    def __init__(self, path, *, expected_duration=None, **kwargs):
+        stat_result = kwargs.get("stat_result") or os.stat(path)
+        kwargs["stat_result"] = stat_result
+        super().__init__(path, **kwargs)
+        self._duration_patches = ()
+        if expected_duration and self.media_type == "video/mp4":
+            self._duration_patches = file_duration_patches(
+                str(path), float(expected_duration), stat_result.st_mtime_ns, stat_result.st_size
+            )
+
+    async def __call__(self, scope, receive, send):
+        if not self._duration_patches:
+            return await super().__call__(scope, receive, send)
+
+        body_offset = 0
+        patch_response = True
+
+        async def send_patched(message):
+            nonlocal body_offset, patch_response
+            if message["type"] == "http.response.start":
+                headers = {key.lower(): value for key, value in message.get("headers", [])}
+                content_range = headers.get(b"content-range", b"").decode("latin-1")
+                if content_range.startswith("multipart/"):
+                    patch_response = False
+                else:
+                    match = re.match(r"bytes (\d+)-", content_range)
+                    body_offset = int(match.group(1)) if match else 0
+            elif message["type"] == "http.response.body" and patch_response:
+                body = message.get("body", b"")
+                message = dict(message)
+                message["body"] = patch_chunk(body, body_offset, self._duration_patches)
+                body_offset += len(body)
+            await send(message)
+
+        patched_scope = dict(scope)
+        patched_scope["extensions"] = {
+            key: value for key, value in scope.get("extensions", {}).items()
+            if key != "http.response.pathsend"
+        }
+        await super().__call__(patched_scope, receive, send_patched)
 
 
 @asynccontextmanager
@@ -103,7 +146,9 @@ def health():
 @app.get("/video/{recording_id}")
 def serve_video(recording_id: int):
     conn = get_db()
-    row = conn.execute("SELECT path, availability FROM recordings WHERE id = ?", (recording_id,)).fetchone()
+    row = conn.execute(
+        "SELECT path, availability, duration FROM recordings WHERE id = ?", (recording_id,)
+    ).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Recording not found")
@@ -114,7 +159,7 @@ def serve_video(recording_id: int):
         raise HTTPException(status_code=404, detail="File not found on disk")
     # FileResponse gestisce nativamente i range request (Content-Range)
     media_type = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
-    return VideoFileResponse(filepath, media_type=media_type)
+    return VideoFileResponse(filepath, media_type=media_type, expected_duration=row["duration"])
 
 
 # ── Frontend statico ──
