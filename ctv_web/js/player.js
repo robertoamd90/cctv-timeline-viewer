@@ -7,6 +7,13 @@ let _playerCache = {};  // camId → {recId}
 let _wasBuffering = false;
 let _lastDriftCheck = 0;
 
+function seekVideo(video, recordingStart) {
+  if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
+  const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, video.duration);
+  if (Math.abs(video.currentTime - target) > 0.5) video.currentTime = target;
+  return true;
+}
+
 // ── Render tutti i player ──
 function renderPlayers() {
   const area = document.getElementById('player-area');
@@ -53,10 +60,7 @@ function renderPlayers() {
 
     const video = cell.querySelector('video');
     if (video && rec && S.currentTime != null) {
-      const target = S.currentTime - rec.start_ts;
-      if (Math.abs(video.currentTime - target) > 0.5) {
-        video.currentTime = Math.max(0, target);
-      }
+      seekVideo(video, rec.start_ts);
     }
   });
   applyHotspotCellPositions();
@@ -81,44 +85,54 @@ function updatePlayerCell(cell, cam, rec, cid) {
 
   if (rec) {
     const recId = String(rec.id);
-    const offset = S.currentTime ? Math.max(0, S.currentTime - rec.start_ts) : 0;
     cell.dataset.recording = recId;
     v.dataset.recording = recId;
     cell.dataset.start = String(rec.start_ts);
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '1';
     cell.dataset.failed = '0';
+    cell.dataset.endRetry = '';
+    v.dataset.hasPlayed = '0';
+    v.dataset.metadataReady = '0';
     empty.hidden = true;
     v.hidden = false;
     setPlayerStatus(cell, t('player.loading'));
     v.pause();
     v.playbackRate = S.speed;
     v.loop = false;
-    v.onended = () => onVideoEnded(v, recId);
+    v.onended = () => {
+      if (videoReachedEnd(v)) {
+        onVideoEnded(v, recId);
+        return;
+      }
+      enterBufferingBarrier(v, t('player.buffering'));
+      if (cell.dataset.endRetry !== recId) {
+        cell.dataset.endRetry = recId;
+        v.dataset.hasPlayed = '0';
+        v.dataset.metadataReady = '0';
+        v.load();
+      }
+    };
     v.onloadedmetadata = () => {
-      if (S.currentTime != null) v.currentTime = Math.max(0, S.currentTime - rec.start_ts);
+      v.dataset.metadataReady = '1';
+      seekVideo(v, rec.start_ts);
     };
     v.oncanplay = () => setPlayerStatus(cell, '');
     v.onseeked = () => {
       if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
     };
     v.onplaying = () => {
+      v.dataset.hasPlayed = '1';
       if (_wasBuffering) v.pause();
       else setPlayerStatus(cell, '');
     };
-    v.onwaiting = () => {
-      if (videoReachedEnd(v)) onVideoEnded(v, recId);
-      else enterBufferingBarrier(v, t('player.buffering'));
-    };
-    v.onstalled = () => {
-      if (videoReachedEnd(v)) onVideoEnded(v, recId);
-      else enterBufferingBarrier(v, t('player.slowSource'));
-    };
+    v.onwaiting = () => enterBufferingBarrier(v, t('player.buffering'));
+    v.onstalled = () => enterBufferingBarrier(v, t('player.slowSource'));
     v.onerror = () => {
       cell.dataset.failed = '1'; cell.dataset.buffering = '0';
       setPlayerStatus(cell, t('player.unplayable'), true);
     };
-    v.src = `${appUrl(`/video/${rec.id}`)}#t=${offset.toFixed(1)}`;
+    v.src = appUrl(`/video/${rec.id}`);
     v.load();
   } else {
     cell.dataset.recording = '';
@@ -127,6 +141,9 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '0';
     cell.dataset.failed = '0';
+    cell.dataset.endRetry = '';
+    v.dataset.hasPlayed = '0';
+    v.dataset.metadataReady = '0';
     v.pause();
     v.onended = v.onloadedmetadata = v.oncanplay = v.onseeked = null;
     v.onplaying = v.onwaiting = v.onstalled = v.onerror = null;
@@ -194,7 +211,7 @@ function seekPlayersToTime() {
     document.querySelectorAll('#player-area video').forEach(v => {
       const recStart = parseFloat(v.parentElement.dataset.start);
       if (S.currentTime != null && !isNaN(recStart)) {
-        v.currentTime = Math.max(0, S.currentTime - recStart);
+        seekVideo(v, recStart);
       }
     });
   }
@@ -234,7 +251,7 @@ function getVideos() { return Array.from(document.querySelectorAll('#player-area
 function activeVideos() {
   return getVideos().filter(video =>
     !video.hidden && Boolean(video.parentElement.dataset.recording) &&
-    video.parentElement.dataset.failed !== '1' && !video.ended
+    video.parentElement.dataset.failed !== '1'
   );
 }
 
@@ -255,9 +272,12 @@ function requiredBuffer(video) {
 }
 
 function videoReachedEnd(video) {
-  if (video.ended) return true;
-  return Number.isFinite(video.duration) && video.duration > 0 &&
-    video.currentTime >= video.duration - 0.15;
+  return CtvMedia.playbackCompleted({
+    currentTime: video.currentTime,
+    duration: video.duration,
+    metadataReady: video.dataset.metadataReady === '1',
+    hasPlayed: video.dataset.hasPlayed === '1',
+  });
 }
 
 function videoHasPlaybackBuffer(video) {
@@ -290,7 +310,11 @@ function alignVideos(videos) {
   videos.forEach(video => {
     const start = parseFloat(video.parentElement.dataset.start);
     if (!Number.isFinite(start) || S.currentTime == null) return;
-    const target = Math.max(0, S.currentTime - start);
+    if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+      aligned = false;
+      return;
+    }
+    const target = CtvMedia.safeSeekTarget(S.currentTime, start, video.duration);
     if (Math.abs(video.currentTime - target) > 0.35) {
       video.currentTime = target;
       setPlayerStatus(video.parentElement, t('player.buffering'));

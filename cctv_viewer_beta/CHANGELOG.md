@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Fix timeline playback on Firefox by seeking only after media metadata is available.
+- Prevent transient loading and stalled events from being interpreted as the end of a recording.
+- Retry an unexpected early media end instead of skipping the recording.
+
 ## 0.1.9
 
 - Keep the full Auto Hotspot label on mobile when space is available.

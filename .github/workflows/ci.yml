@@ -31,10 +31,12 @@ jobs:
           node --check ctv_web/js/geometry.js
           node --check ctv_web/js/app.js
           node --check ctv_web/js/timeline.js
+          node --check ctv_web/js/media.js
           node --check ctv_web/js/player.js
           node tests/test_hotspot.js
           node tests/test_geometry.js
           node tests/test_mobile_layout.js
+          node tests/test_media.js
           sh -n scripts/release.sh
       - name: Validate Home Assistant app metadata
         run: |
