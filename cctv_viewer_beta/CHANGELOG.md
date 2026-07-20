@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13
+
+- Clear the loading state as soon as a selected frame is ready, even while playback is paused.
+- Recenter the visible timeline immediately when playback skips across a large recording gap.
+- Keep the last decoded frame visible during buffering warm-up to prevent black flashes.
+
 ## 0.1.12
 
 - Correct invalid fragmented-MP4 duration metadata while streaming, without modifying or transcoding source files.
