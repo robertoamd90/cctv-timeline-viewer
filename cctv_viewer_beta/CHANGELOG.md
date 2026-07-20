@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14
+
+- Start all active cameras only after a shared seek and buffering barrier.
+- Derive the playback clock from the median camera timestamp instead of the first camera.
+- Pause and realign the complete camera group when timestamps diverge.
+
 ## 0.1.13
 
 - Clear the loading state as soon as a selected frame is ready, even while playback is paused.

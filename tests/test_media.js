@@ -1,5 +1,11 @@
 const assert = require('node:assert/strict');
-const { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer } = require('../ctv_web/js/media.js');
+const { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer, medianTime } = require('../ctv_web/js/media.js');
+
+assert.equal(medianTime([]), null);
+assert.equal(medianTime([12]), 12);
+assert.equal(medianTime([14, 10, 12]), 12);
+assert.equal(medianTime([14, 10, 12, 20]), 13);
+assert.equal(medianTime([NaN, 12, Infinity, 14]), 13);
 
 assert.equal(safeSeekTarget(110, 100, NaN), 10);
 assert.equal(safeSeekTarget(110, 100, 8), 7.95);
