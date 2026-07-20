@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.12
+
+- Correct invalid fragmented-MP4 duration metadata while streaming, without modifying or transcoding source files.
+- Remove the Firefox loading workaround that could alternate between old and current frames.
+- Avoid artificial global buffering during routine high-speed camera synchronization.
+- Prevent playback from stalling on the final frames of a recording.
+
 ## 0.1.11
 
 - Fix playback of camera MP4 files whose duration grows progressively in Firefox.

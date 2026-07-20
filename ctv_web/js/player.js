@@ -93,10 +93,11 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '1';
     cell.dataset.failed = '0';
-    cell.dataset.endRetry = '';
     v.dataset.hasPlayed = '0';
     v.dataset.metadataReady = '0';
-    v.dataset.barrierLoader = '0';
+    v.dataset.driftSeek = '0';
+    v.dataset.warming = '0';
+    v.style.visibility = '';
     empty.hidden = true;
     v.hidden = false;
     setPlayerStatus(cell, t('player.loading'));
@@ -104,17 +105,13 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.playbackRate = S.speed;
     v.loop = false;
     v.onended = () => {
+      if (v.dataset.metadataReady !== '1' || v.dataset.hasPlayed !== '1') return;
       if (videoReachedEnd(v)) {
         onVideoEnded(v, recId);
         return;
       }
       enterBufferingBarrier(v, t('player.buffering'));
-      if (cell.dataset.endRetry !== recId) {
-        cell.dataset.endRetry = recId;
-        v.dataset.hasPlayed = '0';
-        v.dataset.metadataReady = '0';
-        v.load();
-      }
+      v.play().catch(() => {});
     };
     v.onloadedmetadata = () => {
       v.dataset.metadataReady = '1';
@@ -124,16 +121,34 @@ function updatePlayerCell(cell, cam, rec, cid) {
       if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
     };
     v.onseeked = () => {
+      v.dataset.driftSeek = '0';
       if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
     };
     v.onplaying = () => {
       v.dataset.hasPlayed = '1';
-      if (_wasBuffering && v.dataset.barrierLoader !== '1') v.pause();
-      else setPlayerStatus(cell, '');
+      if (_wasBuffering) {
+        if (v.dataset.warming !== '1') v.pause();
+        return;
+      }
+      setPlayerStatus(cell, '');
     };
-    v.onwaiting = () => enterBufferingBarrier(v, t('player.buffering'));
+    v.onwaiting = () => {
+      if (v.dataset.driftSeek !== '1') {
+        enterBufferingBarrier(v, t('player.buffering'));
+        return;
+      }
+      const waitingRecording = v.dataset.recording;
+      setTimeout(() => {
+        if (S.playing && v.dataset.recording === waitingRecording &&
+            v.dataset.driftSeek === '1' &&
+            v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+          enterBufferingBarrier(v, t('player.buffering'));
+        }
+      }, 250);
+    };
     v.onstalled = () => enterBufferingBarrier(v, t('player.slowSource'));
     v.onerror = () => {
+      v.style.visibility = '';
       cell.dataset.failed = '1'; cell.dataset.buffering = '0';
       setPlayerStatus(cell, t('player.unplayable'), true);
     };
@@ -147,10 +162,11 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '0';
     cell.dataset.failed = '0';
-    cell.dataset.endRetry = '';
     v.dataset.hasPlayed = '0';
     v.dataset.metadataReady = '0';
-    v.dataset.barrierLoader = '0';
+    v.dataset.driftSeek = '0';
+    v.dataset.warming = '0';
+    v.style.visibility = '';
     v.pause();
     v.onended = v.onloadedmetadata = v.oncanplay = v.onseeked = null;
     v.onplaying = v.onwaiting = v.onstalled = v.onerror = null;
@@ -262,8 +278,7 @@ function activeVideos() {
   );
 }
 
-function bufferedAhead(video) {
-  const current = video.currentTime;
+function bufferedAheadAt(video, current) {
   for (let i = 0; i < video.buffered.length; i++) {
     if (video.buffered.start(i) <= current + 0.05 && video.buffered.end(i) >= current) {
       return Math.max(0, video.buffered.end(i) - current);
@@ -272,16 +287,9 @@ function bufferedAhead(video) {
   return 0;
 }
 
-function requiredBuffer(video) {
-  const desired = S.speed >= 8 ? 4 : S.speed >= 4 ? 2 : 0.75;
+function requiredBuffer(video, currentTime = video.currentTime) {
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-  if (!Number.isFinite(expectedDuration)) return desired;
-  return Math.min(desired, Math.max(0.1, expectedDuration - video.currentTime - 0.05));
-}
-
-function videoHasProgressiveDuration(video) {
-  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-  return CtvMedia.hasProgressiveDuration(video.duration, expectedDuration);
+  return CtvMedia.requiredPlaybackBuffer(S.speed, currentTime, expectedDuration);
 }
 
 function videoReachedEnd(video) {
@@ -296,14 +304,22 @@ function videoReachedEnd(video) {
 }
 
 function videoHasPlaybackBuffer(video) {
-  // Never stop at the last frames: doing so can prevent `ended` from firing.
+  // Let the decoder consume the tail so the native `ended` event can fire.
   if (videoReachedEnd(video)) return true;
-  if (videoHasProgressiveDuration(video)) {
-    return !video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+  const start = parseFloat(video.parentElement.dataset.start);
+  const warmingTarget = video.dataset.warming === '1' && S.currentTime != null && Number.isFinite(start)
+    ? CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration)
+    : null;
+  const bufferPosition = warmingTarget ?? video.currentTime;
+  if (Number.isFinite(expectedDuration) && bufferPosition >= expectedDuration - 0.5) {
+    return !video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
   }
-  return !video.seeking &&
-    video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA &&
-    bufferedAhead(video) >= requiredBuffer(video);
+  if (warmingTarget != null) {
+    return bufferedAheadAt(video, bufferPosition) >= requiredBuffer(video, bufferPosition);
+  }
+  return !video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA &&
+    bufferedAheadAt(video, video.currentTime) >= requiredBuffer(video);
 }
 
 function absoluteVideoTime(video) {
@@ -312,18 +328,22 @@ function absoluteVideoTime(video) {
 }
 
 function enterBufferingBarrier(source, message) {
-  if (source) setPlayerStatus(source.parentElement, message || t('player.buffering'));
+  if (source) {
+    source.dataset.driftSeek = '0';
+    setPlayerStatus(source.parentElement, message || t('player.buffering'));
+  }
   if (!S.playing) return;
   const videos = activeVideos();
   // S.currentTime is authoritative. A newly loaded video's currentTime is often
   // still zero here and must never be allowed to rewind the global clock.
   videos.forEach(video => {
-    const keepLoading = video === source || !videoHasPlaybackBuffer(video);
-    video.dataset.barrierLoader = keepLoading ? '1' : '0';
-    if (keepLoading) {
+    if (!videoHasPlaybackBuffer(video)) {
+      video.dataset.warming = '1';
+      video.style.visibility = 'hidden';
       video.playbackRate = S.speed;
       video.play().catch(() => {});
     } else {
+      video.dataset.warming = '0';
       video.pause();
     }
   });
@@ -356,7 +376,11 @@ function stopPlayback() {
   if (_tickId) { cancelAnimationFrame(_tickId); _tickId = null; }
   S.playing = false;
   _wasBuffering = false;
-  getVideos().forEach(v => { v.dataset.barrierLoader = '0'; v.pause(); });
+  getVideos().forEach(v => {
+    v.dataset.warming = '0';
+    v.style.visibility = '';
+    v.pause();
+  });
   updatePlayButton();
 }
 
@@ -413,7 +437,8 @@ function clockTick() {
     }
   });
   const buffering = videos.some(video =>
-    video.parentElement.dataset.buffering === '1' || !videoHasPlaybackBuffer(video)
+    video.parentElement.dataset.buffering === '1' ||
+    (video.dataset.driftSeek !== '1' && !videoHasPlaybackBuffer(video))
   );
   if (buffering) {
     if (!_wasBuffering) enterBufferingBarrier(null, null);
@@ -429,7 +454,8 @@ function clockTick() {
     }
     _wasBuffering = false;
     videos.forEach(video => {
-      video.dataset.barrierLoader = '0';
+      video.dataset.warming = '0';
+      video.style.visibility = '';
       setPlayerStatus(video.parentElement, '');
       video.playbackRate = S.speed;
       video.play().catch(() => enterBufferingBarrier(video, t('player.buffering')));
@@ -452,16 +478,16 @@ function clockTick() {
 
   if (videos.length > 1 && performance.now() - _lastDriftCheck > 500) {
     _lastDriftCheck = performance.now();
-    const maxDrift = S.speed >= 8 ? 0.75 : 0.35;
-    const outOfSync = videos.some(video => {
+    const maxDrift = S.speed >= 8 ? 1.5 : 0.35;
+    videos.forEach(video => {
       const time = absoluteVideoTime(video);
-      return time != null && Math.abs(time - S.currentTime) > maxDrift;
+      if (time == null || Math.abs(time - S.currentTime) <= maxDrift) return;
+      const start = parseFloat(video.parentElement.dataset.start);
+      const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+      if (!Number.isFinite(start) || video.readyState < HTMLMediaElement.HAVE_METADATA) return;
+      video.dataset.driftSeek = '1';
+      video.currentTime = CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration);
     });
-    if (outOfSync) {
-      enterBufferingBarrier(null, null);
-      _tickId = requestAnimationFrame(clockTick);
-      return;
-    }
   }
   updateTimeDisplay();
   updateCursor();
