@@ -21,5 +21,12 @@
     return Math.min(desired, Math.max(0, expectedDuration - currentTime - 0.5));
   }
 
-  return { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer };
+  function medianTime(times) {
+    const values = times.filter(Number.isFinite).sort((a, b) => a - b);
+    if (!values.length) return null;
+    const middle = Math.floor(values.length / 2);
+    return values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+  }
+
+  return { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer, medianTime };
 });

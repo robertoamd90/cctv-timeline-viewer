@@ -5,13 +5,12 @@
 let _clockStartTime = null, _clockStartWall = null, _tickId = null;
 let _playerCache = {};  // camId → {recId}
 let _wasBuffering = false;
-let _lastDriftCheck = 0;
 
 function seekVideo(video, recordingStart) {
   if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
   const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, expectedDuration);
-  if (Math.abs(video.currentTime - target) > 0.5) video.currentTime = target;
+  if (Math.abs(video.currentTime - target) > 0.05) video.currentTime = target;
   return true;
 }
 
@@ -420,7 +419,7 @@ function alignVideos(videos) {
     }
     const expectedDuration = parseFloat(video.parentElement.dataset.duration);
     const target = CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration);
-    if (Math.abs(video.currentTime - target) > 0.35) {
+    if (Math.abs(video.currentTime - target) > 0.1) {
       video.currentTime = target;
       setPlayerStatus(video.parentElement, t('player.buffering'));
       aligned = false;
@@ -453,7 +452,7 @@ document.getElementById('btn-play').onclick = () => {
     return;
   }
   S.playing = true; updatePlayButton();
-  activeVideos().forEach(v => { v.playbackRate = S.speed; v.play().catch(()=>{}); });
+  enterBufferingBarrier(null, null);
   startClock();
 };
 
@@ -522,10 +521,21 @@ function clockTick() {
   }
 
   const previousTime = S.currentTime;
-  if (S.speed > 4 && videos.length) {
-    const master = videos[0];
-    const recordingStart = parseFloat(master.parentElement.dataset.start);
-    S.currentTime = recordingStart + master.currentTime;
+  const videoTimes = videos.map(absoluteVideoTime).filter(Number.isFinite);
+  if (videoTimes.length) {
+    const synchronizedTime = CtvMedia.medianTime(videoTimes);
+    const maxSpread = S.speed >= 8 ? 0.5 : 0.25;
+    const spread = Math.max(...videoTimes) - Math.min(...videoTimes);
+    if (spread > maxSpread) {
+      const outlier = videos.reduce((worst, video) => {
+        const deviation = Math.abs(absoluteVideoTime(video) - synchronizedTime);
+        return !worst || deviation > worst.deviation ? { video, deviation } : worst;
+      }, null).video;
+      enterBufferingBarrier(outlier, t('player.buffering'));
+      _tickId = requestAnimationFrame(clockTick);
+      return;
+    }
+    S.currentTime = synchronizedTime;
     _clockStartTime = S.currentTime;
     _clockStartWall = performance.now();
   } else {
@@ -533,19 +543,6 @@ function clockTick() {
     S.currentTime = _clockStartTime + elapsed;
   }
 
-  if (videos.length > 1 && performance.now() - _lastDriftCheck > 500) {
-    _lastDriftCheck = performance.now();
-    const maxDrift = S.speed >= 8 ? 1.5 : 0.35;
-    videos.forEach(video => {
-      const time = absoluteVideoTime(video);
-      if (time == null || Math.abs(time - S.currentTime) <= maxDrift) return;
-      const start = parseFloat(video.parentElement.dataset.start);
-      const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-      if (!Number.isFinite(start) || video.readyState < HTMLMediaElement.HAVE_METADATA) return;
-      video.dataset.driftSeek = '1';
-      video.currentTime = CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration);
-    });
-  }
   updateTimeDisplay();
   updateCursor();
   updateAutoHotspot(previousTime, S.currentTime);
