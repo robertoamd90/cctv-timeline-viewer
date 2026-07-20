@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11
+
+- Fix playback of camera MP4 files whose duration grows progressively in Firefox.
+- Use indexed recording duration instead of transient browser duration for seeking and completion.
+- Keep progressive media loading during synchronization barriers to prevent Firefox buffering deadlocks.
+
 ## 0.1.10
 
 - Fix timeline playback on Firefox by seeking only after media metadata is available.

@@ -9,12 +9,16 @@
     return Math.min(target, Math.max(0, duration - 0.05));
   }
 
-  function playbackCompleted({ currentTime, duration, metadataReady, hasPlayed }) {
-    if (!metadataReady || !hasPlayed || !Number.isFinite(duration) || duration <= 0) {
-      return false;
-    }
-    return currentTime >= duration - 0.15;
+  function playbackCompleted({ ended, currentTime, expectedDuration, metadataReady, hasPlayed }) {
+    if (!ended || !metadataReady || !hasPlayed) return false;
+    if (!Number.isFinite(expectedDuration) || expectedDuration <= 0) return true;
+    return currentTime >= expectedDuration - 0.5;
   }
 
-  return { safeSeekTarget, playbackCompleted };
+  function hasProgressiveDuration(reportedDuration, expectedDuration) {
+    return Number.isFinite(reportedDuration) && reportedDuration > 0 &&
+      Number.isFinite(expectedDuration) && expectedDuration > reportedDuration + 0.5;
+  }
+
+  return { safeSeekTarget, playbackCompleted, hasProgressiveDuration };
 });
