@@ -9,7 +9,8 @@ let _lastDriftCheck = 0;
 
 function seekVideo(video, recordingStart) {
   if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
-  const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, video.duration);
+  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+  const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, expectedDuration);
   if (Math.abs(video.currentTime - target) > 0.5) video.currentTime = target;
   return true;
 }
@@ -88,12 +89,14 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.recording = recId;
     v.dataset.recording = recId;
     cell.dataset.start = String(rec.start_ts);
+    cell.dataset.duration = String(rec.duration ?? Math.max(0, (rec.end_ts ?? rec.start_ts) - rec.start_ts));
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '1';
     cell.dataset.failed = '0';
     cell.dataset.endRetry = '';
     v.dataset.hasPlayed = '0';
     v.dataset.metadataReady = '0';
+    v.dataset.barrierLoader = '0';
     empty.hidden = true;
     v.hidden = false;
     setPlayerStatus(cell, t('player.loading'));
@@ -117,13 +120,15 @@ function updatePlayerCell(cell, cam, rec, cid) {
       v.dataset.metadataReady = '1';
       seekVideo(v, rec.start_ts);
     };
-    v.oncanplay = () => setPlayerStatus(cell, '');
+    v.oncanplay = () => {
+      if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
+    };
     v.onseeked = () => {
       if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
     };
     v.onplaying = () => {
       v.dataset.hasPlayed = '1';
-      if (_wasBuffering) v.pause();
+      if (_wasBuffering && v.dataset.barrierLoader !== '1') v.pause();
       else setPlayerStatus(cell, '');
     };
     v.onwaiting = () => enterBufferingBarrier(v, t('player.buffering'));
@@ -138,12 +143,14 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.recording = '';
     v.dataset.recording = '';
     cell.dataset.start = '';
+    cell.dataset.duration = '';
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '0';
     cell.dataset.failed = '0';
     cell.dataset.endRetry = '';
     v.dataset.hasPlayed = '0';
     v.dataset.metadataReady = '0';
+    v.dataset.barrierLoader = '0';
     v.pause();
     v.onended = v.onloadedmetadata = v.oncanplay = v.onseeked = null;
     v.onplaying = v.onwaiting = v.onstalled = v.onerror = null;
@@ -267,14 +274,22 @@ function bufferedAhead(video) {
 
 function requiredBuffer(video) {
   const desired = S.speed >= 8 ? 4 : S.speed >= 4 ? 2 : 0.75;
-  if (!Number.isFinite(video.duration)) return desired;
-  return Math.min(desired, Math.max(0.1, video.duration - video.currentTime - 0.05));
+  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+  if (!Number.isFinite(expectedDuration)) return desired;
+  return Math.min(desired, Math.max(0.1, expectedDuration - video.currentTime - 0.05));
+}
+
+function videoHasProgressiveDuration(video) {
+  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+  return CtvMedia.hasProgressiveDuration(video.duration, expectedDuration);
 }
 
 function videoReachedEnd(video) {
+  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
   return CtvMedia.playbackCompleted({
+    ended: video.ended,
     currentTime: video.currentTime,
-    duration: video.duration,
+    expectedDuration,
     metadataReady: video.dataset.metadataReady === '1',
     hasPlayed: video.dataset.hasPlayed === '1',
   });
@@ -283,6 +298,9 @@ function videoReachedEnd(video) {
 function videoHasPlaybackBuffer(video) {
   // Never stop at the last frames: doing so can prevent `ended` from firing.
   if (videoReachedEnd(video)) return true;
+  if (videoHasProgressiveDuration(video)) {
+    return !video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+  }
   return !video.seeking &&
     video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA &&
     bufferedAhead(video) >= requiredBuffer(video);
@@ -299,7 +317,16 @@ function enterBufferingBarrier(source, message) {
   const videos = activeVideos();
   // S.currentTime is authoritative. A newly loaded video's currentTime is often
   // still zero here and must never be allowed to rewind the global clock.
-  videos.forEach(video => video.pause());
+  videos.forEach(video => {
+    const keepLoading = video === source || !videoHasPlaybackBuffer(video);
+    video.dataset.barrierLoader = keepLoading ? '1' : '0';
+    if (keepLoading) {
+      video.playbackRate = S.speed;
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  });
   _wasBuffering = true;
   _clockStartTime = S.currentTime;
   _clockStartWall = performance.now();
@@ -314,7 +341,8 @@ function alignVideos(videos) {
       aligned = false;
       return;
     }
-    const target = CtvMedia.safeSeekTarget(S.currentTime, start, video.duration);
+    const expectedDuration = parseFloat(video.parentElement.dataset.duration);
+    const target = CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration);
     if (Math.abs(video.currentTime - target) > 0.35) {
       video.currentTime = target;
       setPlayerStatus(video.parentElement, t('player.buffering'));
@@ -328,7 +356,7 @@ function stopPlayback() {
   if (_tickId) { cancelAnimationFrame(_tickId); _tickId = null; }
   S.playing = false;
   _wasBuffering = false;
-  getVideos().forEach(v => v.pause());
+  getVideos().forEach(v => { v.dataset.barrierLoader = '0'; v.pause(); });
   updatePlayButton();
 }
 
@@ -401,6 +429,7 @@ function clockTick() {
     }
     _wasBuffering = false;
     videos.forEach(video => {
+      video.dataset.barrierLoader = '0';
       setPlayerStatus(video.parentElement, '');
       video.playbackRate = S.speed;
       video.play().catch(() => enterBufferingBarrier(video, t('player.buffering')));
