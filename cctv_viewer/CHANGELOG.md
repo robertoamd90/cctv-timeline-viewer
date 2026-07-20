@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.12
+
+- Improve the Auto Hotspot control layout and labeling on mobile screens.
+- Correct invalid fragmented-MP4 duration metadata while streaming, without modifying or transcoding source files.
+- Stabilize Firefox playback and clip transitions for camera-generated MP4 files.
+- Avoid visible frame rewinds during buffering warm-up.
+- Reduce artificial global buffering during high-speed camera synchronization.
+- Prevent playback from stalling on the final frames of a recording.
+
 ## 0.1.6
 
 - Keep timeline previews inside the visible viewport.
