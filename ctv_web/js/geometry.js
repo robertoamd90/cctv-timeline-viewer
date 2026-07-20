@@ -10,4 +10,12 @@ function viewportPopoverPosition(point, size, viewport, margin = 8, gap = 14) {
   return { left: Math.round(left), top: Math.round(top) };
 }
 
-if (typeof module !== 'undefined') module.exports = { viewportPopoverPosition };
+function recenterRange(time, visibleRange, limits, anchor = 0.3) {
+  const total = Math.max(0, limits[1] - limits[0]);
+  const width = Math.min(total, Math.max(0, visibleRange[1] - visibleRange[0]));
+  const maximumStart = limits[1] - width;
+  const start = Math.max(limits[0], Math.min(time - width * anchor, maximumStart));
+  return [start, start + width];
+}
+
+if (typeof module !== 'undefined') module.exports = { viewportPopoverPosition, recenterRange };

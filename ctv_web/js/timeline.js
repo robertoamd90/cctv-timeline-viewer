@@ -23,6 +23,15 @@ function contentWidth() {
   return Math.max(220, rowWidth() - timelineLabelWidth());
 }
 
+function ensureTimelineTimeVisible(ts, anchor = 0.3) {
+  if (!S.zoomRange || !S.timeline) return false;
+  const [vFrom, vTo] = S.zoomRange;
+  if (ts >= vFrom && ts <= vTo) return false;
+  S.zoomRange = recenterRange(ts, S.zoomRange, [S.timeline.from, S.timeline.to], anchor);
+  renderTimeline();
+  return true;
+}
+
 function renderTimeline() {
   const body = document.getElementById('timeline-body');
   if (!S.timeline || !S.timeline.cameras.length) {
@@ -416,16 +425,7 @@ document.getElementById('timeline-body').addEventListener('click', function(e) {
 function seekTo(ts) {
   S.currentTime = ts;
   stopPlayback();
-  if (S.zoomRange && S.timeline) {
-    const [vFrom, vTo] = S.zoomRange;
-    if (ts < vFrom || ts > vTo) {
-      const range = vTo - vFrom;
-      S.zoomRange = [ts - range * 0.3, ts + range * 0.7];
-      if (S.zoomRange[0] < S.timeline.from) S.zoomRange[0] = S.timeline.from;
-      if (S.zoomRange[1] > S.timeline.to) S.zoomRange[1] = S.timeline.to;
-      renderTimeline();
-    }
-  }
+  ensureTimelineTimeVisible(ts);
   syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); seekPlayersToTime();
 }
 
@@ -443,15 +443,6 @@ function jumpToBoundary(direction) {
   } else {
     for (let i=0; i < starts.length; i++) { if (starts[i] > S.currentTime + margin) { S.currentTime = starts[i]; break; } }
   }
-  if (S.zoomRange && S.timeline) {
-    const [vFrom, vTo] = S.zoomRange;
-    if (S.currentTime < vFrom || S.currentTime > vTo) {
-      const range = vTo - vFrom;
-      S.zoomRange = [S.currentTime - range * 0.3, S.currentTime + range * 0.7];
-      if (S.zoomRange[0] < S.timeline.from) S.zoomRange[0] = S.timeline.from;
-      if (S.zoomRange[1] > S.timeline.to) S.zoomRange[1] = S.timeline.to;
-      renderTimeline();
-    }
-  }
+  ensureTimelineTimeVisible(S.currentTime);
   syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); renderPlayers();
 }

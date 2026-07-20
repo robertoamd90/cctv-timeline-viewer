@@ -75,6 +75,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
       <div class="hotspot-action">${esc(t('player.bringToFront'))}</div>
       <div class="player-status" hidden></div>
       <div class="empty-state" hidden></div>
+      <canvas class="player-freeze" hidden></canvas>
       <video muted playsinline webkit-playsinline disablepictureinpicture
         controlslist="nofullscreen nodownload noremoteplayback" preload="auto" hidden></video>`;
     v = cell.querySelector('video');
@@ -97,7 +98,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.dataset.metadataReady = '0';
     v.dataset.driftSeek = '0';
     v.dataset.warming = '0';
-    v.style.visibility = '';
+    clearFreezeFrame(v);
     empty.hidden = true;
     v.hidden = false;
     setPlayerStatus(cell, t('player.loading'));
@@ -117,12 +118,11 @@ function updatePlayerCell(cell, cam, rec, cid) {
       v.dataset.metadataReady = '1';
       seekVideo(v, rec.start_ts);
     };
-    v.oncanplay = () => {
-      if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
-    };
+    v.onloadeddata = () => clearStatusWhenReady(v);
+    v.oncanplay = () => clearStatusWhenReady(v);
     v.onseeked = () => {
       v.dataset.driftSeek = '0';
-      if (videoHasPlaybackBuffer(v)) setPlayerStatus(cell, '');
+      clearStatusWhenReady(v);
     };
     v.onplaying = () => {
       v.dataset.hasPlayed = '1';
@@ -148,7 +148,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     };
     v.onstalled = () => enterBufferingBarrier(v, t('player.slowSource'));
     v.onerror = () => {
-      v.style.visibility = '';
+      clearFreezeFrame(v);
       cell.dataset.failed = '1'; cell.dataset.buffering = '0';
       setPlayerStatus(cell, t('player.unplayable'), true);
     };
@@ -166,9 +166,9 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.dataset.metadataReady = '0';
     v.dataset.driftSeek = '0';
     v.dataset.warming = '0';
-    v.style.visibility = '';
+    clearFreezeFrame(v);
     v.pause();
-    v.onended = v.onloadedmetadata = v.oncanplay = v.onseeked = null;
+    v.onended = v.onloadedmetadata = v.onloadeddata = v.oncanplay = v.onseeked = null;
     v.onplaying = v.onwaiting = v.onstalled = v.onerror = null;
     v.removeAttribute('src');
     v.load();
@@ -186,6 +186,63 @@ function setPlayerStatus(cell, message, error = false) {
   status.classList.toggle('error', error);
   status.hidden = !message;
   if (!error) cell.dataset.buffering = message ? '1' : '0';
+}
+
+function selectedFrameReady(video) {
+  return !video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+}
+
+function clearStatusWhenReady(video) {
+  if ((!S.playing && selectedFrameReady(video)) || (S.playing && videoHasPlaybackBuffer(video))) {
+    setPlayerStatus(video.parentElement, '');
+  }
+}
+
+function clearFreezeFrame(video) {
+  const canvas = video.parentElement?.querySelector('.player-freeze');
+  if (!canvas) return;
+  canvas.dataset.token = String((Number(canvas.dataset.token) || 0) + 1);
+  canvas.hidden = true;
+}
+
+function showFreezeFrame(video) {
+  if (!selectedFrameReady(video) || !video.videoWidth || !video.videoHeight) return;
+  const cell = video.parentElement;
+  const canvas = cell.querySelector('.player-freeze');
+  if (!canvas) return;
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.max(1, Math.round(cell.clientWidth * scale));
+  const height = Math.max(1, Math.round(cell.clientHeight * scale));
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  context.fillStyle = '#0a0a0f';
+  context.fillRect(0, 0, width, height);
+  const fill = document.getElementById('player-area').classList.contains('fill');
+  const ratio = fill
+    ? Math.max(width / video.videoWidth, height / video.videoHeight)
+    : Math.min(width / video.videoWidth, height / video.videoHeight);
+  const drawWidth = video.videoWidth * ratio;
+  const drawHeight = video.videoHeight * ratio;
+  try {
+    context.drawImage(video, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    canvas.dataset.token = String((Number(canvas.dataset.token) || 0) + 1);
+    canvas.hidden = false;
+  } catch (_) {
+    canvas.hidden = true;
+  }
+}
+
+function revealFreezeOnNextFrame(video) {
+  const canvas = video.parentElement?.querySelector('.player-freeze');
+  if (!canvas || canvas.hidden) return;
+  const token = canvas.dataset.token;
+  const reveal = () => {
+    if (canvas.dataset.token === token && video.dataset.warming !== '1') canvas.hidden = true;
+  };
+  if (typeof video.requestVideoFrameCallback === 'function') video.requestVideoFrameCallback(reveal);
+  else setTimeout(reveal, 80);
 }
 
 function findRecordingAt(cameraId, ts) {
@@ -339,7 +396,7 @@ function enterBufferingBarrier(source, message) {
   videos.forEach(video => {
     if (!videoHasPlaybackBuffer(video)) {
       video.dataset.warming = '1';
-      video.style.visibility = 'hidden';
+      showFreezeFrame(video);
       video.playbackRate = S.speed;
       video.play().catch(() => {});
     } else {
@@ -378,7 +435,7 @@ function stopPlayback() {
   _wasBuffering = false;
   getVideos().forEach(v => {
     v.dataset.warming = '0';
-    v.style.visibility = '';
+    clearFreezeFrame(v);
     v.pause();
   });
   updatePlayButton();
@@ -455,9 +512,9 @@ function clockTick() {
     _wasBuffering = false;
     videos.forEach(video => {
       video.dataset.warming = '0';
-      video.style.visibility = '';
       setPlayerStatus(video.parentElement, '');
       video.playbackRate = S.speed;
+      revealFreezeOnNextFrame(video);
       video.play().catch(() => enterBufferingBarrier(video, t('player.buffering')));
     });
     _clockStartTime = S.currentTime;
@@ -532,6 +589,7 @@ function reconcilePlaybackPosition() {
     S.currentTime = nextStart + 0.001;
     _clockStartTime = S.currentTime;
     _clockStartWall = performance.now();
+    ensureTimelineTimeVisible(S.currentTime, 0.2);
     updateTimeDisplay(); updateCursor();
     updateAutoHotspot(previousTime, S.currentTime);
   }
