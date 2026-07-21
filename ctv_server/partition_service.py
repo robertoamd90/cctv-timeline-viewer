@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from ctv_server.api.events import emit
-from ctv_server.db import get_db
+from ctv_server.db import get_db, write_db
 from ctv_server.indexer import index_camera
 from ctv_server.partitioner import dates_for_range, partition_key, resolve_partition
 from ctv_server.thumbnailer import generate_thumbnail
@@ -23,20 +23,18 @@ def _lock_for(camera_id: int, key: str) -> threading.Lock:
 
 
 def _delete_partition_recordings(camera_id: int, key: str) -> int:
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT thumbnail_path FROM recordings WHERE camera_id = ? AND partition_key = ?",
-        (camera_id, key),
-    ).fetchall()
-    count = conn.execute(
-        "SELECT COUNT(*) FROM recordings WHERE camera_id = ? AND partition_key = ?",
-        (camera_id, key),
-    ).fetchone()[0]
-    conn.execute(
-        "DELETE FROM recordings WHERE camera_id = ? AND partition_key = ?", (camera_id, key)
-    )
-    conn.commit()
-    conn.close()
+    with write_db() as conn:
+        rows = conn.execute(
+            "SELECT thumbnail_path FROM recordings WHERE camera_id = ? AND partition_key = ?",
+            (camera_id, key),
+        ).fetchall()
+        count = conn.execute(
+            "SELECT COUNT(*) FROM recordings WHERE camera_id = ? AND partition_key = ?",
+            (camera_id, key),
+        ).fetchone()[0]
+        conn.execute(
+            "DELETE FROM recordings WHERE camera_id = ? AND partition_key = ?", (camera_id, key)
+        )
     for row in rows:
         if row["thumbnail_path"]:
             try:
@@ -48,21 +46,19 @@ def _delete_partition_recordings(camera_id: int, key: str) -> int:
 
 def invalidate_partition(camera_id: int, key: str, path: str) -> dict:
     removed = _delete_partition_recordings(camera_id, key)
-    conn = get_db()
-    conn.execute("""
-        INSERT INTO partitions (camera_id, partition_key, path, status, error, last_requested, file_count)
-        VALUES (?, ?, ?, 'missing', NULL, ?, 0)
-        ON CONFLICT(camera_id, partition_key) DO UPDATE SET
-            path=excluded.path, status='missing', error=NULL,
-            last_requested=excluded.last_requested, file_count=0,
-            progress_done=0, progress_total=0
-    """, (camera_id, key, path, time.time()))
-    conn.execute(
-        "UPDATE cameras SET source_status = 'online', source_error = NULL WHERE id = ?",
-        (camera_id,),
-    )
-    conn.commit()
-    conn.close()
+    with write_db() as conn:
+        conn.execute("""
+            INSERT INTO partitions (camera_id, partition_key, path, status, error, last_requested, file_count)
+            VALUES (?, ?, ?, 'missing', NULL, ?, 0)
+            ON CONFLICT(camera_id, partition_key) DO UPDATE SET
+                path=excluded.path, status='missing', error=NULL,
+                last_requested=excluded.last_requested, file_count=0,
+                progress_done=0, progress_total=0
+        """, (camera_id, key, path, time.time()))
+        conn.execute(
+            "UPDATE cameras SET source_status = 'online', source_error = NULL WHERE id = ?",
+            (camera_id,),
+        )
     payload = {"camera_id": camera_id, "partition": key, "status": "missing", "removed": removed}
     emit("partition", payload)
     return payload
@@ -83,10 +79,8 @@ def _generate_thumbnails(camera_id: int, key: str):
             if thumb:
                 updates.append((thumb, row["id"]))
         if updates:
-            conn = get_db()
-            conn.executemany("UPDATE recordings SET thumbnail_path = ? WHERE id = ?", updates)
-            conn.commit()
-            conn.close()
+            with write_db() as conn:
+                conn.executemany("UPDATE recordings SET thumbnail_path = ? WHERE id = ?", updates)
         emit("partition", {"camera_id": camera_id, "partition": key, "status": "thumbnails_done"})
 
 
@@ -95,24 +89,21 @@ def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
     if not lock.acquire(blocking=False):
         return {"camera_id": camera_id, "partition": key, "status": "busy"}
     try:
-        conn = get_db()
-        camera = conn.execute(
-            "SELECT timezone, source_path FROM cameras WHERE id = ?", (camera_id,)
-        ).fetchone()
-        if not camera:
-            conn.close()
-            return {"camera_id": camera_id, "partition": key, "status": "removed"}
-        conn.execute(
-            "UPDATE partitions SET status = 'scanning', error = NULL, progress_done = 0, progress_total = 0 "
-            "WHERE camera_id = ? AND partition_key = ?",
-            (camera_id, key),
-        )
-        conn.execute(
-            "UPDATE cameras SET source_status = 'scanning', source_error = NULL WHERE id = ?",
-            (camera_id,),
-        )
-        conn.commit()
-        conn.close()
+        with write_db() as conn:
+            camera = conn.execute(
+                "SELECT timezone, source_path FROM cameras WHERE id = ?", (camera_id,)
+            ).fetchone()
+            if not camera:
+                return {"camera_id": camera_id, "partition": key, "status": "removed"}
+            conn.execute(
+                "UPDATE partitions SET status = 'scanning', error = NULL, progress_done = 0, progress_total = 0 "
+                "WHERE camera_id = ? AND partition_key = ?",
+                (camera_id, key),
+            )
+            conn.execute(
+                "UPDATE cameras SET source_status = 'scanning', source_error = NULL WHERE id = ?",
+                (camera_id,),
+            )
         emit("partition", {"camera_id": camera_id, "partition": key, "status": "started"})
 
         if not os.path.isdir(camera["source_path"]):
@@ -132,14 +123,12 @@ def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
             if done != total and now - last_progress["time"] < 0.5:
                 return
             last_progress.update(time=now, done=done)
-            progress_conn = get_db()
-            progress_conn.execute(
-                "UPDATE partitions SET progress_done = ?, progress_total = ? "
-                "WHERE camera_id = ? AND partition_key = ?",
-                (done, total, camera_id, key),
-            )
-            progress_conn.commit()
-            progress_conn.close()
+            with write_db() as progress_conn:
+                progress_conn.execute(
+                    "UPDATE partitions SET progress_done = ?, progress_total = ? "
+                    "WHERE camera_id = ? AND partition_key = ?",
+                    (done, total, camera_id, key),
+                )
             emit("partition_progress", {
                 "camera_id": camera_id, "partition": key, "done": done, "total": total,
             })
@@ -153,20 +142,18 @@ def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
             progress=report_progress,
         )
         completed = time.time()
-        conn = get_db()
-        conn.execute("""
-            UPDATE partitions SET status = 'ready', error = NULL, last_scanned = ?, file_count = ?,
-                progress_done = ?, progress_total = ?
-            WHERE camera_id = ? AND partition_key = ?
-        """, (
-            completed, result["total"], result["total"], result["total"], camera_id, key,
-        ))
-        conn.execute(
-            "UPDATE cameras SET source_status = 'online', source_error = NULL, last_scan_completed = ? WHERE id = ?",
-            (completed, camera_id),
-        )
-        conn.commit()
-        conn.close()
+        with write_db() as conn:
+            conn.execute("""
+                UPDATE partitions SET status = 'ready', error = NULL, last_scanned = ?, file_count = ?,
+                    progress_done = ?, progress_total = ?
+                WHERE camera_id = ? AND partition_key = ?
+            """, (
+                completed, result["total"], result["total"], result["total"], camera_id, key,
+            ))
+            conn.execute(
+                "UPDATE cameras SET source_status = 'online', source_error = NULL, last_scan_completed = ? WHERE id = ?",
+                (completed, camera_id),
+            )
         payload = {"camera_id": camera_id, "partition": key, "status": "done", **result}
         emit("partition", payload)
         # Le miniature non ritardano ne la timeline ne le altre partizioni.
@@ -177,17 +164,15 @@ def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
     except Exception as exc:
         message = str(exc)
         log.warning("Partition scan failed for camera %d, %s: %s", camera_id, key, message)
-        conn = get_db()
-        conn.execute(
-            "UPDATE partitions SET status = 'error', error = ? WHERE camera_id = ? AND partition_key = ?",
-            (message, camera_id, key),
-        )
-        conn.execute(
-            "UPDATE cameras SET source_status = 'offline', source_error = ? WHERE id = ?",
-            (message, camera_id),
-        )
-        conn.commit()
-        conn.close()
+        with write_db() as conn:
+            conn.execute(
+                "UPDATE partitions SET status = 'error', error = ? WHERE camera_id = ? AND partition_key = ?",
+                (message, camera_id, key),
+            )
+            conn.execute(
+                "UPDATE cameras SET source_status = 'offline', source_error = ? WHERE id = ?",
+                (message, camera_id),
+            )
         payload = {"camera_id": camera_id, "partition": key, "status": "error", "error": message}
         emit("partition", payload)
         return payload
@@ -216,27 +201,25 @@ def prepare_partitions(camera_ids: list[int], from_ts: float, to_ts: float) -> l
                 "exists": os.path.isdir(path),
             })
 
-    conn = get_db()
     jobs = []
-    for candidate in candidates:
-        camera_id, key, path = candidate["camera_id"], candidate["key"], candidate["path"]
-        conn.execute("""
-            INSERT INTO partitions (camera_id, partition_key, path, status, last_requested)
-            VALUES (?, ?, ?, 'unknown', ?)
-            ON CONFLICT(camera_id, partition_key) DO UPDATE SET
-                path=excluded.path, last_requested=excluded.last_requested
-        """, (camera_id, key, path, now))
-        row = conn.execute(
-            "SELECT status, last_scanned FROM partitions WHERE camera_id = ? AND partition_key = ?",
-            (camera_id, key),
-        ).fetchone()
-        default_ttl = "60" if candidate["is_today"] else "300"
-        ttl = int(os.environ.get("CTV_ACTIVE_PARTITION_SECONDS", default_ttl))
-        stale = not row["last_scanned"] or now - row["last_scanned"] >= ttl
-        if not candidate["exists"]:
-            jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": True})
-        elif stale and not _lock_for(camera_id, key).locked():
-            jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": False})
-    conn.commit()
-    conn.close()
+    with write_db() as conn:
+        for candidate in candidates:
+            camera_id, key, path = candidate["camera_id"], candidate["key"], candidate["path"]
+            conn.execute("""
+                INSERT INTO partitions (camera_id, partition_key, path, status, last_requested)
+                VALUES (?, ?, ?, 'unknown', ?)
+                ON CONFLICT(camera_id, partition_key) DO UPDATE SET
+                    path=excluded.path, last_requested=excluded.last_requested
+            """, (camera_id, key, path, now))
+            row = conn.execute(
+                "SELECT status, last_scanned FROM partitions WHERE camera_id = ? AND partition_key = ?",
+                (camera_id, key),
+            ).fetchone()
+            default_ttl = "60" if candidate["is_today"] else "300"
+            ttl = int(os.environ.get("CTV_ACTIVE_PARTITION_SECONDS", default_ttl))
+            stale = not row["last_scanned"] or now - row["last_scanned"] >= ttl
+            if not candidate["exists"]:
+                jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": True})
+            elif stale and not _lock_for(camera_id, key).locked():
+                jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": False})
     return jobs

@@ -3,7 +3,7 @@ import threading
 import time
 
 from ctv_server.api.events import emit
-from ctv_server.db import get_db
+from ctv_server.db import get_db, write_db
 from ctv_server.indexer import index_camera
 from ctv_server.thumbnailer import generate_thumbnail
 
@@ -28,20 +28,21 @@ def run_camera_scan(camera_id: int, source_path: str) -> dict:
         return {"status": "busy", "camera_id": camera_id}
 
     started = time.time()
-    conn = get_db()
-    camera = conn.execute("SELECT source_path FROM cameras WHERE id = ?", (camera_id,)).fetchone()
-    if not camera:
-        conn.close()
+    try:
+        with write_db() as conn:
+            camera = conn.execute("SELECT source_path FROM cameras WHERE id = ?", (camera_id,)).fetchone()
+            if not camera:
+                lock.release()
+                return {"status": "removed", "camera_id": camera_id}
+            # Usa sempre il percorso corrente: il watcher potrebbe avere letto una configurazione precedente.
+            source_path = camera["source_path"]
+            conn.execute(
+                "UPDATE cameras SET source_status = 'scanning', source_error = NULL, last_scan_started = ? WHERE id = ?",
+                (started, camera_id),
+            )
+    except Exception:
         lock.release()
-        return {"status": "removed", "camera_id": camera_id}
-    # Usa sempre il percorso corrente: il watcher potrebbe avere letto una configurazione precedente.
-    source_path = camera["source_path"]
-    conn.execute(
-        "UPDATE cameras SET source_status = 'scanning', source_error = NULL, last_scan_started = ? WHERE id = ?",
-        (started, camera_id),
-    )
-    conn.commit()
-    conn.close()
+        raise
     emit("scan", {"camera_id": camera_id, "status": "started"})
 
     try:
@@ -70,31 +71,27 @@ def run_camera_scan(camera_id: int, source_path: str) -> dict:
                 "total": len(rows),
             })
         completed = time.time()
-        conn = get_db()
-        conn.executemany(
-            "UPDATE recordings SET thumbnail_path = ? WHERE id = ?",
-            thumbnail_updates,
-        )
-        conn.execute(
-            "UPDATE cameras SET source_status = 'online', source_error = NULL, "
-            "last_scan_completed = ? WHERE id = ?",
-            (completed, camera_id),
-        )
-        conn.commit()
-        conn.close()
+        with write_db() as conn:
+            conn.executemany(
+                "UPDATE recordings SET thumbnail_path = ? WHERE id = ?",
+                thumbnail_updates,
+            )
+            conn.execute(
+                "UPDATE cameras SET source_status = 'online', source_error = NULL, "
+                "last_scan_completed = ? WHERE id = ?",
+                (completed, camera_id),
+            )
         payload = {"camera_id": camera_id, "status": "done", **result}
         emit("scan", payload)
         return payload
     except Exception as exc:
         message = str(exc)
         log.warning("Scan failed for camera %d: %s", camera_id, message)
-        conn = get_db()
-        conn.execute(
-            "UPDATE cameras SET source_status = 'offline', source_error = ? WHERE id = ?",
-            (message, camera_id),
-        )
-        conn.commit()
-        conn.close()
+        with write_db() as conn:
+            conn.execute(
+                "UPDATE cameras SET source_status = 'offline', source_error = ? WHERE id = ?",
+                (message, camera_id),
+            )
         payload = {"camera_id": camera_id, "status": "error", "error": message}
         emit("scan", payload)
         return payload

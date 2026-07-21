@@ -12,9 +12,9 @@ from ctv_server import auth
 from ctv_server import db
 from ctv_server.api.cameras import list_cameras, update_camera
 from ctv_server.api.events import _sanitize
-from ctv_server.api.recordings import _public_recording
+from ctv_server.api.recordings import _public_recording, list_recordings
 from ctv_server.api.system import list_source_directories
-from ctv_server.api.timeline import prepare_timeline
+from ctv_server.api.timeline import get_timeline, prepare_timeline
 from ctv_server.auth import CurrentUser, require_admin, user_from_request
 from ctv_server.config import path_within_source_roots, source_roots
 from ctv_server.models import CameraUpdate
@@ -164,7 +164,7 @@ class PublicApiTests(unittest.TestCase):
             prepare_timeline(BackgroundTasks(), 0, 172801, None)
         self.assertEqual(raised.exception.status_code, 422)
 
-    def test_updating_camera_offset_shifts_existing_recordings(self):
+    def test_updating_camera_offset_keeps_stored_timestamps_and_adjusts_api(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = db.DB_PATH
             db.DB_PATH = os.path.join(tmp, "ctv.db")
@@ -172,7 +172,8 @@ class PublicApiTests(unittest.TestCase):
                 db.init_db()
                 conn = db.get_db()
                 camera_id = conn.execute(
-                    "INSERT INTO cameras (name, source_path, timezone) VALUES (?, ?, ?)",
+                    "INSERT INTO cameras (name, source_path, timezone, indexing_mode) "
+                    "VALUES (?, ?, ?, 'full')",
                     ("Garage", tmp, "UTC"),
                 ).lastrowid
                 conn.execute(
@@ -185,17 +186,24 @@ class PublicApiTests(unittest.TestCase):
                 admin = CurrentUser("admin", "admin", "Admin", True, True)
                 result = update_camera(camera_id, CameraUpdate(
                     name="Garage", source_path=tmp, timezone="UTC", time_offset_seconds=-5,
-                    indexing_mode="partitioned", directory_pattern="{YYYY}/{MM}/{DD}",
+                    indexing_mode="full", directory_pattern="{YYYY}/{MM}/{DD}",
                 ), admin)
                 conn = db.get_db()
                 recording = conn.execute(
                     "SELECT start_ts, end_ts FROM recordings WHERE camera_id = ?", (camera_id,)
                 ).fetchone()
                 conn.close()
+                public = list_recordings(
+                    camera_id=camera_id, from_ts=None, to_ts=None, limit=100, offset=0
+                )
+                timeline = get_timeline(90, 120, str(camera_id))
             finally:
                 db.DB_PATH = original
             self.assertEqual(result.time_offset_seconds, -5)
-            self.assertEqual((recording["start_ts"], recording["end_ts"]), (95, 105))
+            self.assertEqual((recording["start_ts"], recording["end_ts"]), (100, 110))
+            self.assertEqual((public[0]["start_ts"], public[0]["end_ts"]), (95, 105))
+            segment = timeline["cameras"][0]["segments"][0]
+            self.assertEqual((segment["start_ts"], segment["end_ts"]), (95, 105))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.16
+
+- Prevent camera offset changes and timeline preparation from competing for the SQLite writer.
+- Apply camera offsets at read time without rewriting all indexed recordings.
+- Preserve timestamps previously adjusted by Beta 0.1.15 during the automatic database migration.
+- Replace signed numeric input with explicit Earlier/Later direction controls.
+
 ## 0.1.15
 
 - Add a configurable recording time offset for each camera.

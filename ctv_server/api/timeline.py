@@ -1,7 +1,7 @@
 import math
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from ctv_server.db import get_db
+from ctv_server.db import RECORDING_TIME_DELTA_SQL, get_db, recording_time_delta
 from ctv_server.partition_service import prepare_partitions, run_partition_scan
 from ctv_server.partitioner import dates_for_range, partition_key
 
@@ -38,7 +38,8 @@ def prepare_timeline(
 def get_timeline_bounds():
     conn = get_db()
     row = conn.execute(
-        "SELECT MIN(start_ts) AS first, MAX(COALESCE(end_ts, start_ts)) AS last "
+        f"SELECT MIN(r.start_ts + {RECORDING_TIME_DELTA_SQL}) AS first, "
+        f"MAX(COALESCE(r.end_ts, r.start_ts) + {RECORDING_TIME_DELTA_SQL}) AS last "
         "FROM recordings r JOIN cameras c ON c.id = r.camera_id "
         "WHERE r.availability = 'available' "
         "AND (c.indexing_mode = 'full' OR r.partition_key IS NOT NULL)"
@@ -58,8 +59,9 @@ def get_timeline(
 
     # Se nessun range specificato, usa i limiti dei dati
     if from_ts is None or to_ts is None:
-        row = conn.execute("""
-            SELECT MIN(r.start_ts) as mn, MAX(COALESCE(r.end_ts, r.start_ts)) as mx
+        row = conn.execute(f"""
+            SELECT MIN(r.start_ts + {RECORDING_TIME_DELTA_SQL}) as mn,
+                   MAX(COALESCE(r.end_ts, r.start_ts) + {RECORDING_TIME_DELTA_SQL}) as mx
             FROM recordings r JOIN cameras c ON c.id = r.camera_id
             WHERE r.availability = 'available'
               AND (c.indexing_mode = 'full' OR r.partition_key IS NOT NULL)
@@ -114,11 +116,12 @@ def get_timeline(
             "segments": [],
         }
 
-    query = """SELECT r.*, c.name as camera_name
+    query = f"""SELECT r.*, c.name as camera_name, c.time_offset_seconds
                FROM recordings r JOIN cameras c ON r.camera_id = c.id
                WHERE r.availability = 'available'
                  AND (c.indexing_mode = 'full' OR r.partition_key IS NOT NULL)
-                 AND COALESCE(r.end_ts, r.start_ts) >= ? AND r.start_ts <= ?"""
+                 AND COALESCE(r.end_ts, r.start_ts) + {RECORDING_TIME_DELTA_SQL} >= ?
+                 AND r.start_ts + {RECORDING_TIME_DELTA_SQL} <= ?"""
     params: list = [from_ts, to_ts]
 
     if selected_ids:
@@ -135,11 +138,12 @@ def get_timeline(
         cid = d["camera_id"]
         if cid not in cameras_map:
             continue
+        offset = recording_time_delta(r)
         cameras_map[cid]["segments"].append({
             "id": d["id"],
             "filename": d["filename"],
-            "start_ts": d["start_ts"],
-            "end_ts": d["end_ts"],
+            "start_ts": d["start_ts"] + offset,
+            "end_ts": d["end_ts"] + offset if d["end_ts"] is not None else None,
             "duration": d["duration"],
             "media_kind": d["media_kind"],
             "has_thumbnail": d["thumbnail_path"] is not None,

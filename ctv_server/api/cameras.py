@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Depends, HTTPException, Request
 from ctv_server.auth import CurrentUser, current_user, require_admin
 from ctv_server.config import path_within_source_roots
-from ctv_server.db import get_db
+from ctv_server.db import get_db, write_db
 from ctv_server.models import CameraCreate, CameraResponse, CameraUpdate
 from ctv_server.partitioner import validate_pattern
 
@@ -95,15 +95,13 @@ def create_camera(body: CameraCreate, _: CurrentUser = Depends(require_admin)) -
         pattern = validate_pattern(body.directory_pattern)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO cameras (name, source_path, timezone, time_offset_seconds, indexing_mode, "
-        "directory_pattern, source_status) VALUES (?, ?, ?, ?, ?, ?, 'online')",
-        (body.name.strip(), source_path, tz, body.time_offset_seconds, body.indexing_mode, pattern),
-    )
-    conn.commit()
-    camera = conn.execute("SELECT * FROM cameras WHERE id = ?", (cur.lastrowid,)).fetchone()
-    conn.close()
+    with write_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO cameras (name, source_path, timezone, time_offset_seconds, indexing_mode, "
+            "directory_pattern, source_status) VALUES (?, ?, ?, ?, ?, ?, 'online')",
+            (body.name.strip(), source_path, tz, body.time_offset_seconds, body.indexing_mode, pattern),
+        )
+        camera = conn.execute("SELECT * FROM cameras WHERE id = ?", (cur.lastrowid,)).fetchone()
     return CameraResponse(**dict(camera))
 
 
@@ -116,48 +114,38 @@ def update_camera(
         pattern = validate_pattern(body.directory_pattern)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    conn = get_db()
-    previous = conn.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,)).fetchone()
-    if not previous:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Camera not found")
-    cache_changed = any((
-        previous["source_path"] != source_path,
-        previous["timezone"] != tz,
-        previous["indexing_mode"] != body.indexing_mode,
-        previous["directory_pattern"] != pattern,
-    ))
-    offset_delta = body.time_offset_seconds - previous["time_offset_seconds"]
     thumbnails = []
-    if cache_changed:
-        thumbnails = [
-            row["thumbnail_path"] for row in conn.execute(
-                "SELECT thumbnail_path FROM recordings WHERE camera_id = ? AND thumbnail_path IS NOT NULL",
-                (camera_id,),
-            ).fetchall()
-        ]
-        conn.execute("DELETE FROM recordings WHERE camera_id = ?", (camera_id,))
-        conn.execute("DELETE FROM partitions WHERE camera_id = ?", (camera_id,))
-    elif offset_delta:
-        conn.execute(
-            "UPDATE recordings SET start_ts = start_ts + ?, "
-            "end_ts = CASE WHEN end_ts IS NULL THEN NULL ELSE end_ts + ? END "
-            "WHERE camera_id = ?",
-            (offset_delta, offset_delta, camera_id),
+    with write_db() as conn:
+        previous = conn.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,)).fetchone()
+        if not previous:
+            raise HTTPException(status_code=404, detail="Camera not found")
+        cache_changed = any((
+            previous["source_path"] != source_path,
+            previous["timezone"] != tz,
+            previous["indexing_mode"] != body.indexing_mode,
+            previous["directory_pattern"] != pattern,
+        ))
+        if cache_changed:
+            thumbnails = [
+                row["thumbnail_path"] for row in conn.execute(
+                    "SELECT thumbnail_path FROM recordings WHERE camera_id = ? AND thumbnail_path IS NOT NULL",
+                    (camera_id,),
+                ).fetchall()
+            ]
+            conn.execute("DELETE FROM recordings WHERE camera_id = ?", (camera_id,))
+            conn.execute("DELETE FROM partitions WHERE camera_id = ?", (camera_id,))
+        cur = conn.execute(
+            "UPDATE cameras SET name = ?, source_path = ?, timezone = ?, time_offset_seconds = ?, "
+            "indexing_mode = ?, directory_pattern = ?, "
+            "source_status = ?, source_error = ? WHERE id = ?",
+            (body.name.strip(), source_path, tz, body.time_offset_seconds,
+             body.indexing_mode, pattern,
+             "unknown" if cache_changed else previous["source_status"],
+             None if cache_changed else previous["source_error"], camera_id),
         )
-    cur = conn.execute(
-        "UPDATE cameras SET name = ?, source_path = ?, timezone = ?, time_offset_seconds = ?, "
-        "indexing_mode = ?, directory_pattern = ?, "
-        "source_status = 'unknown', source_error = NULL WHERE id = ?",
-        (body.name.strip(), source_path, tz, body.time_offset_seconds,
-         body.indexing_mode, pattern, camera_id),
-    )
-    if cur.rowcount == 0:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Camera not found")
-    conn.commit()
-    camera = conn.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,)).fetchone()
-    conn.close()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Camera not found")
+        camera = conn.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,)).fetchone()
     for thumbnail in thumbnails:
         try:
             os.unlink(thumbnail)
@@ -182,10 +170,8 @@ def delete_camera(camera_id: int, _: CurrentUser = Depends(require_admin)):
 
     if is_scanning(camera_id):
         raise HTTPException(status_code=409, detail="Attendi la fine della scansione prima di eliminare la telecamera")
-    conn = get_db()
-    cur = conn.execute("DELETE FROM cameras WHERE id = ?", (camera_id,))
-    conn.commit()
-    conn.close()
+    with write_db() as conn:
+        cur = conn.execute("DELETE FROM cameras WHERE id = ?", (camera_id,))
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Camera not found")
     return {"deleted": camera_id}

@@ -295,6 +295,7 @@ label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 
 .path-input-row { display: flex; gap: 6px; }
 .path-input-row input { flex: 1; min-width: 0; }
 .path-input-row button { width: auto; flex: 0 0 auto; }
+.offset-input-row { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(72px, 0.65fr); gap: 6px; }
 input, button, select {
   font-family: inherit; font-size: 12px; padding: 7px 10px; border-radius: 6px;
   border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%;

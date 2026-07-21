@@ -3,7 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Optional
 
-from ctv_server.db import get_db
+from ctv_server.db import get_db, write_db
 from ctv_server.scanner import (
     extract_timestamp,
     get_ffprobe_data,
@@ -24,10 +24,7 @@ def index_camera(
     """Riconcilia una sorgente senza perdere gli ID delle registrazioni."""
     conn = get_db()
     try:
-        cam = conn.execute(
-            "SELECT timezone, time_offset_seconds FROM cameras WHERE id = ?", (camera_id,)
-        ).fetchone()
-        time_offset_seconds = cam["time_offset_seconds"] if cam else 0
+        cam = conn.execute("SELECT timezone FROM cameras WHERE id = ?", (camera_id,)).fetchone()
         if timezone == "UTC":
             if cam and cam["timezone"]:
                 timezone = cam["timezone"]
@@ -69,14 +66,14 @@ def index_camera(
         start_ts = extract_timestamp(media["filename"], media["path"], timezone)
         media_kind = "video"
         meta = parse_ffprobe(get_ffprobe_data(media["path"]))
-        start_ts = (start_ts or meta.get("creation_time") or media["mtime"]) + time_offset_seconds
+        start_ts = start_ts or meta.get("creation_time") or media["mtime"]
         duration = meta.get("duration", 0) or 0
         end_ts = start_ts + duration if duration > 0 else None
         file_hash = hash_file(media["path"]) if os.environ.get("CTV_HASH_FILES") == "1" else None
         return (
             camera_id, media["path"], media["filename"], start_ts, end_ts, duration,
             meta.get("codec", ""), meta.get("resolution", ""), meta.get("fps", 0),
-            media["size"], media["mtime"], file_hash, partition_key, media_kind, scan_time,
+            media["size"], media["mtime"], file_hash, partition_key, media_kind, scan_time, 0,
         )
 
     workers = max(1, int(os.environ.get("CTV_INDEX_WORKERS", "4")))
@@ -91,8 +88,7 @@ def index_camera(
             if progress:
                 progress(done, len(files))
 
-    conn = get_db()
-    try:
+    with write_db() as conn:
         conn.executemany(
             "UPDATE recordings SET availability = 'available', last_seen = ? "
             "WHERE camera_id = ? AND path = ?",
@@ -102,8 +98,9 @@ def index_camera(
             conn.execute("""
                 INSERT INTO recordings (
                     camera_id, path, filename, start_ts, end_ts, duration,
-                    codec, resolution, fps, size, mtime, hash, partition_key, media_kind, availability, last_seen
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?)
+                    codec, resolution, fps, size, mtime, hash, partition_key, media_kind,
+                    availability, last_seen, time_offset_applied_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)
                 ON CONFLICT(camera_id, path) DO UPDATE SET
                     filename=excluded.filename, start_ts=excluded.start_ts,
                     end_ts=excluded.end_ts, duration=excluded.duration,
@@ -111,6 +108,7 @@ def index_camera(
                     fps=excluded.fps, size=excluded.size, mtime=excluded.mtime, hash=excluded.hash,
                     partition_key=excluded.partition_key,
                     media_kind=excluded.media_kind,
+                    time_offset_applied_seconds=excluded.time_offset_applied_seconds,
                     availability='available', last_seen=excluded.last_seen
             """, values)
 
@@ -139,15 +137,9 @@ def index_camera(
                 ((camera_id, path) for path in missing_paths),
             )
         counts["missing"] = len(missing_paths)
-        conn.commit()
         for thumbnail in missing_thumbnails:
             try:
                 os.unlink(thumbnail)
             except OSError:
                 pass
         return counts
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
