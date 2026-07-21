@@ -79,6 +79,24 @@ class PartitionIndexTests(unittest.TestCase):
         conn.close()
         self.assertEqual(count, 0)
 
+    def test_negative_offset_loads_next_physical_day_near_midnight(self):
+        next_day = self.root / "2026" / "07" / "12"
+        next_day.mkdir(parents=True)
+        conn = db.get_db()
+        conn.execute(
+            "UPDATE cameras SET time_offset_seconds = -5 WHERE id = ?", (self.camera_id,)
+        )
+        conn.commit()
+        conn.close()
+        tz = ZoneInfo("Europe/Rome")
+        start = datetime(2026, 7, 11, 23, 59, 58, tzinfo=tz).timestamp()
+        end = datetime(2026, 7, 12, 0, 0, 0, tzinfo=tz).timestamp()
+
+        jobs = prepare_partitions([self.camera_id], start, end)
+
+        self.assertEqual([job["key"] for job in jobs], ["2026-07-12"])
+        self.assertEqual(jobs[0]["path"], str(next_day))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -83,9 +83,10 @@ def get_timeline(
         state = "ready" if camera["indexing_mode"] == "full" else "unknown"
         progress_done = progress_total = 0
         if camera["indexing_mode"] == "partitioned":
+            offset = camera["time_offset_seconds"] or 0
             keys = [
                 partition_key(day)
-                for day in dates_for_range(from_ts, to_ts, camera["timezone"])
+                for day in dates_for_range(from_ts - offset, to_ts - offset, camera["timezone"])
             ]
             placeholders = ",".join("?" for _ in keys)
             partitions = conn.execute(

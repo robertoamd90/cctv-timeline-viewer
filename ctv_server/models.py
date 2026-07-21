@@ -8,6 +8,7 @@ class CameraCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Nome della telecamera")
     source_path: str = Field(..., min_length=1, description="Percorso sorgente delle registrazioni")
     timezone: str = Field(default="", description="Timezone (es. Europe/Rome). Vuoto = auto-detect dal sistema")
+    time_offset_seconds: float = Field(default=0, ge=-3600, le=3600)
     indexing_mode: str = Field(default="partitioned", pattern="^(partitioned|full)$")
     directory_pattern: str = Field(default="{YYYY}/{MM}/{DD}", min_length=1)
 
@@ -16,6 +17,7 @@ class CameraUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     source_path: str = Field(..., min_length=1)
     timezone: str = Field(..., min_length=1)
+    time_offset_seconds: float = Field(default=0, ge=-3600, le=3600)
     indexing_mode: str = Field(default="partitioned", pattern="^(partitioned|full)$")
     directory_pattern: str = Field(default="{YYYY}/{MM}/{DD}", min_length=1)
 
@@ -25,6 +27,7 @@ class CameraResponse(BaseModel):
     name: str
     source_path: str
     timezone: str
+    time_offset_seconds: float = 0
     config: str = "{}"
     indexing_mode: str = "partitioned"
     directory_pattern: str = "{YYYY}/{MM}/{DD}"

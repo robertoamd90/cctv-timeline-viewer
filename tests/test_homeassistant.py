@@ -10,13 +10,14 @@ from starlette.requests import Request
 
 from ctv_server import auth
 from ctv_server import db
-from ctv_server.api.cameras import list_cameras
+from ctv_server.api.cameras import list_cameras, update_camera
 from ctv_server.api.events import _sanitize
 from ctv_server.api.recordings import _public_recording
 from ctv_server.api.system import list_source_directories
 from ctv_server.api.timeline import prepare_timeline
 from ctv_server.auth import CurrentUser, require_admin, user_from_request
 from ctv_server.config import path_within_source_roots, source_roots
+from ctv_server.models import CameraUpdate
 
 
 def make_request(headers=None, user=None):
@@ -162,6 +163,39 @@ class PublicApiTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as raised:
             prepare_timeline(BackgroundTasks(), 0, 172801, None)
         self.assertEqual(raised.exception.status_code, 422)
+
+    def test_updating_camera_offset_shifts_existing_recordings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = db.DB_PATH
+            db.DB_PATH = os.path.join(tmp, "ctv.db")
+            try:
+                db.init_db()
+                conn = db.get_db()
+                camera_id = conn.execute(
+                    "INSERT INTO cameras (name, source_path, timezone) VALUES (?, ?, ?)",
+                    ("Garage", tmp, "UTC"),
+                ).lastrowid
+                conn.execute(
+                    "INSERT INTO recordings (camera_id, path, filename, start_ts, end_ts) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (camera_id, os.path.join(tmp, "clip.mp4"), "clip.mp4", 100, 110),
+                )
+                conn.commit()
+                conn.close()
+                admin = CurrentUser("admin", "admin", "Admin", True, True)
+                result = update_camera(camera_id, CameraUpdate(
+                    name="Garage", source_path=tmp, timezone="UTC", time_offset_seconds=-5,
+                    indexing_mode="partitioned", directory_pattern="{YYYY}/{MM}/{DD}",
+                ), admin)
+                conn = db.get_db()
+                recording = conn.execute(
+                    "SELECT start_ts, end_ts FROM recordings WHERE camera_id = ?", (camera_id,)
+                ).fetchone()
+                conn.close()
+            finally:
+                db.DB_PATH = original
+            self.assertEqual(result.time_offset_seconds, -5)
+            self.assertEqual((recording["start_ts"], recording["end_ts"]), (95, 105))
 
 
 if __name__ == "__main__":

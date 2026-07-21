@@ -654,6 +654,7 @@ function selectCamera(id) {
   document.getElementById('cam-name').value = camera.name;
   document.getElementById('cam-path').value = camera.source_path;
   setCameraTimezone(camera.timezone);
+  document.getElementById('cam-time-offset').value = camera.time_offset_seconds ?? 0;
   document.getElementById('cam-indexing-mode').value = camera.indexing_mode || 'partitioned';
   document.getElementById('cam-pattern').value = camera.directory_pattern || '{YYYY}/{MM}/{DD}';
   document.getElementById('btn-add-cam').textContent = t('cameras.save');
@@ -667,6 +668,7 @@ function resetCameraForm() {
   document.getElementById('cam-name').value = '';
   document.getElementById('cam-path').value = '';
   setCameraTimezone(DETECTED_TIMEZONE);
+  document.getElementById('cam-time-offset').value = 0;
   document.getElementById('cam-indexing-mode').value = 'partitioned';
   document.getElementById('cam-pattern').value = '{YYYY}/{MM}/{DD}';
   document.getElementById('btn-add-cam').textContent = t('cameras.addAction');
@@ -958,15 +960,19 @@ document.getElementById('btn-add-cam').onclick = async () => {
   const name = document.getElementById('cam-name').value.trim();
   const path = document.getElementById('cam-path').value.trim();
   const tz = document.getElementById('cam-tz').value.trim();
+  const timeOffset = Number(document.getElementById('cam-time-offset').value);
   const indexingMode = document.getElementById('cam-indexing-mode').value;
   const directoryPattern = document.getElementById('cam-pattern').value.trim();
   if (!name || !path) { toast(t('cameras.required'), 'error'); return; }
+  if (!Number.isFinite(timeOffset) || timeOffset < -3600 || timeOffset > 3600) {
+    toast(t('cameras.invalidTimeOffset'), 'error'); return;
+  }
   try {
     if (S.editingCameraId) {
       const editingId = S.editingCameraId;
       await api('/api/cameras/' + editingId, {
         method: 'PUT', body: {
-          name, source_path: path, timezone: tz,
+          name, source_path: path, timezone: tz, time_offset_seconds: timeOffset,
           indexing_mode: indexingMode, directory_pattern: directoryPattern,
         }
       });
@@ -975,7 +981,7 @@ document.getElementById('btn-add-cam').onclick = async () => {
     } else {
       const camera = await api('/api/cameras', {
         method: 'POST', body: {
-          name, source_path: path, timezone: tz,
+          name, source_path: path, timezone: tz, time_offset_seconds: timeOffset,
           indexing_mode: indexingMode, directory_pattern: directoryPattern,
         }
       });

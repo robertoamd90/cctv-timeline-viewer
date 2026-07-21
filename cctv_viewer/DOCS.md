@@ -11,6 +11,11 @@
 Network storage must first be configured in Home Assistant as Media storage.
 The app receives `/media` read-only, so it cannot modify recordings.
 
+For cameras that include footage preceding the timestamp in the filename, use
+the per-camera **Recording time offset**. Enter `-5`, for example, when a file
+named `12:00:05` actually begins at `12:00:00`. Existing indexed recordings are
+adjusted immediately and do not need to be scanned again.
+
 ## Permissions
 
 The app is available only to Home Assistant administrators. Administrators can
