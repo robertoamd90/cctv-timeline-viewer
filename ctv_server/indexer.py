@@ -73,7 +73,7 @@ def index_camera(
         return (
             camera_id, media["path"], media["filename"], start_ts, end_ts, duration,
             meta.get("codec", ""), meta.get("resolution", ""), meta.get("fps", 0),
-            media["size"], media["mtime"], file_hash, partition_key, media_kind, scan_time, 0,
+            media["size"], media["mtime"], file_hash, partition_key, media_kind, scan_time,
         )
 
     workers = max(1, int(os.environ.get("CTV_INDEX_WORKERS", "4")))
@@ -99,8 +99,8 @@ def index_camera(
                 INSERT INTO recordings (
                     camera_id, path, filename, start_ts, end_ts, duration,
                     codec, resolution, fps, size, mtime, hash, partition_key, media_kind,
-                    availability, last_seen, time_offset_applied_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)
+                    availability, last_seen
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?)
                 ON CONFLICT(camera_id, path) DO UPDATE SET
                     filename=excluded.filename, start_ts=excluded.start_ts,
                     end_ts=excluded.end_ts, duration=excluded.duration,
@@ -108,7 +108,6 @@ def index_camera(
                     fps=excluded.fps, size=excluded.size, mtime=excluded.mtime, hash=excluded.hash,
                     partition_key=excluded.partition_key,
                     media_kind=excluded.media_kind,
-                    time_offset_applied_seconds=excluded.time_offset_applied_seconds,
                     availability='available', last_seen=excluded.last_seen
             """, values)
 

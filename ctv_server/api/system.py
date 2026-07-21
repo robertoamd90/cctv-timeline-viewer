@@ -1,12 +1,56 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ctv_server.auth import CurrentUser, current_user, require_admin
 from ctv_server.config import deployment_mode, path_within_source_roots, source_roots
+from ctv_server.db import write_db
+from ctv_server.operations import IndexBusyError, maintenance_window
+from ctv_server.thumbnailer import THUMBNAIL_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.post("/admin/rebuild-index")
+def rebuild_index(_: CurrentUser = Depends(require_admin)):
+    try:
+        with maintenance_window():
+            with write_db() as conn:
+                recordings = conn.execute("SELECT COUNT(*) FROM recordings").fetchone()[0]
+                partitions = conn.execute("SELECT COUNT(*) FROM partitions").fetchone()[0]
+                thumbnail_paths = {
+                    row[0] for row in conn.execute(
+                        "SELECT thumbnail_path FROM recordings WHERE thumbnail_path IS NOT NULL"
+                    ).fetchall()
+                }
+                conn.execute("DELETE FROM recordings")
+                conn.execute("DELETE FROM partitions")
+                conn.execute(
+                    "UPDATE cameras SET source_status = 'unknown', source_error = NULL, "
+                    "last_scan_started = NULL, last_scan_completed = NULL"
+                )
+
+            thumbnail_paths.update(str(path) for path in Path(THUMBNAIL_DIR).glob("*.jpg"))
+            thumbnails = 0
+            for thumbnail in thumbnail_paths:
+                try:
+                    os.unlink(thumbnail)
+                    thumbnails += 1
+                except FileNotFoundError:
+                    pass
+                except OSError:
+                    pass
+    except IndexBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return {
+        "status": "rebuilt",
+        "recordings_deleted": recordings,
+        "partitions_deleted": partitions,
+        "thumbnails_deleted": thumbnails,
+    }
 
 
 @router.get("/session")

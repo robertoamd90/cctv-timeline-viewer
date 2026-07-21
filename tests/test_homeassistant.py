@@ -13,11 +13,14 @@ from ctv_server import db
 from ctv_server.api.cameras import list_cameras, update_camera
 from ctv_server.api.events import _sanitize
 from ctv_server.api.recordings import _public_recording, list_recordings
-from ctv_server.api.system import list_source_directories
+from ctv_server.api.system import list_source_directories, rebuild_index
 from ctv_server.api.timeline import get_timeline, prepare_timeline
 from ctv_server.auth import CurrentUser, require_admin, user_from_request
 from ctv_server.config import path_within_source_roots, source_roots
 from ctv_server.models import CameraUpdate
+from ctv_server.operations import (
+    begin_index_job, end_index_job, index_generation, maintenance_window,
+)
 
 
 def make_request(headers=None, user=None):
@@ -113,6 +116,64 @@ class SourceBrowserTests(unittest.TestCase):
 
 
 class PublicApiTests(unittest.TestCase):
+    def test_rebuild_index_preserves_cameras_and_deletes_derived_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = db.DB_PATH
+            db.DB_PATH = os.path.join(tmp, "ctv.db")
+            thumbnail_dir = os.path.join(tmp, "thumbnails")
+            os.mkdir(thumbnail_dir)
+            thumbnail = os.path.join(thumbnail_dir, "1.jpg")
+            open(thumbnail, "wb").close()
+            try:
+                db.init_db()
+                conn = db.get_db()
+                camera_id = conn.execute(
+                    "INSERT INTO cameras (name, source_path, timezone, time_offset_seconds) "
+                    "VALUES ('Garage', ?, 'UTC', -5)", (tmp,),
+                ).lastrowid
+                conn.execute(
+                    "INSERT INTO recordings (id, camera_id, path, filename, start_ts, thumbnail_path) "
+                    "VALUES (1, ?, 'clip.mp4', 'clip.mp4', 100, ?)", (camera_id, thumbnail),
+                )
+                conn.execute(
+                    "INSERT INTO partitions (camera_id, partition_key, path) VALUES (?, '2026-07-21', ?)",
+                    (camera_id, tmp),
+                )
+                conn.commit()
+                conn.close()
+                admin = CurrentUser("admin", "admin", "Admin", True, True)
+                with patch("ctv_server.api.system.THUMBNAIL_DIR", thumbnail_dir):
+                    result = rebuild_index(admin)
+                conn = db.get_db()
+                camera = conn.execute(
+                    "SELECT name, time_offset_seconds FROM cameras WHERE id = ?", (camera_id,)
+                ).fetchone()
+                recordings = conn.execute("SELECT COUNT(*) FROM recordings").fetchone()[0]
+                partitions = conn.execute("SELECT COUNT(*) FROM partitions").fetchone()[0]
+                conn.close()
+            finally:
+                db.DB_PATH = original
+            self.assertEqual((camera["name"], camera["time_offset_seconds"]), ("Garage", -5))
+            self.assertEqual((recordings, partitions), (0, 0))
+            self.assertEqual(result["recordings_deleted"], 1)
+            self.assertFalse(os.path.exists(thumbnail))
+
+    def test_rebuild_index_rejects_active_scan(self):
+        self.assertTrue(begin_index_job())
+        try:
+            admin = CurrentUser("admin", "admin", "Admin", True, True)
+            with self.assertRaises(HTTPException) as raised:
+                rebuild_index(admin)
+        finally:
+            end_index_job()
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_rebuild_invalidates_queued_index_jobs(self):
+        queued_generation = index_generation()
+        with maintenance_window():
+            pass
+        self.assertFalse(begin_index_job(queued_generation))
+
     def test_viewer_camera_response_hides_source_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = db.DB_PATH

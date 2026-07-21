@@ -34,6 +34,7 @@ const S = {
   hotspotSideRows: 1,
   hotspotMobile: false,
   loadingPartitions: 0,
+  indexNeedsReload: false,
 };
 
 function isCompactViewport() {
@@ -160,7 +161,14 @@ function switchTab(name) {
   if (view) view.classList.add('active');
   S.activeTab = name;
   // Entra nella timeline → renderizza
-  if (name === 'timeline') { renderTimeline(); renderPlayers(); updateCursor(); updateTimeDisplay(); }
+  if (name === 'timeline') {
+    if (S.indexNeedsReload) {
+      S.indexNeedsReload = false;
+      loadTimeline();
+    } else {
+      renderTimeline(); renderPlayers(); updateCursor(); updateTimeDisplay();
+    }
+  }
 }
 
 document.querySelectorAll('.tab').forEach(btn => {
@@ -1055,6 +1063,32 @@ document.getElementById('btn-scan-all').onclick = async () => {
     await api('/api/scan', { method: 'POST' });
   }
   catch(e) { toast(t('cameras.errorScan', {message: localizeMessage(e.message)}), 'error'); }
+};
+
+document.getElementById('btn-rebuild-index').onclick = async () => {
+  if (!confirm(t('cameras.confirmRebuildIndex'))) return;
+  const button = document.getElementById('btn-rebuild-index');
+  button.disabled = true;
+  try {
+    const result = await api('/api/admin/rebuild-index', { method: 'POST' });
+    stopPlayback();
+    S.timeline = null;
+    S.currentTime = null;
+    S.zoomRange = null;
+    S.loadingPartitions = 0;
+    S.indexNeedsReload = true;
+    renderTimeline();
+    renderPlayers();
+    await loadCameras();
+    toast(t('cameras.indexRebuilt', {count: result.recordings_deleted}), 'info');
+  } catch (error) {
+    const message = error.message === 'Indexing is in progress'
+      ? t('cameras.indexBusy')
+      : localizeMessage(error.message);
+    toast(t('cameras.errorRebuildIndex', {message}), 'error');
+  } finally {
+    button.disabled = false;
+  }
 };
 
 // ═══ Timeline resize ═══

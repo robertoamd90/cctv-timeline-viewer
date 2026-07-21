@@ -313,6 +313,8 @@ button:active { transform: scale(0.98); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover { background: #4090e0; border-color: #4090e0; }
 button.secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+button.danger { color: var(--danger); border-color: rgba(248,81,73,0.45); background: transparent; }
+button.danger:hover { color: #fff; border-color: var(--danger); background: rgba(248,81,73,0.18); }
 .btn-icon {
   background: none; border: none; color: var(--text-dim); padding: 3px 5px;
   font-size: 13px; width: auto; cursor: pointer; border-radius: 4px;

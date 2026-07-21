@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from ctv_server.auth import CurrentUser, require_admin
 from ctv_server.db import get_db
+from ctv_server.operations import index_generation
 from ctv_server.scan_service import is_scanning, run_camera_scan
 
 log = logging.getLogger("ctv.scan")
@@ -25,7 +26,7 @@ def scan_camera(
         raise HTTPException(status_code=400, detail="La sorgente partizionata viene caricata dalla timeline")
     if is_scanning(camera_id):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background.add_task(run_camera_scan, camera_id, cam["source_path"])
+    background.add_task(run_camera_scan, camera_id, cam["source_path"], index_generation())
     return {"status": "started", "camera_id": camera_id}
 
 
@@ -42,7 +43,9 @@ def scan_all(
     queued = 0
     for cam in cameras:
         if not is_scanning(cam["id"]):
-            background.add_task(run_camera_scan, cam["id"], cam["source_path"])
+            background.add_task(
+                run_camera_scan, cam["id"], cam["source_path"], index_generation()
+            )
             queued += 1
     log.info("Scan all queued: %d of %d cameras", queued, len(cameras))
     return {"status": "started", "cameras": queued, "busy": len(cameras) - queued}
