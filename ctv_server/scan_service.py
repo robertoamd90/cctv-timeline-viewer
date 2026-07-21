@@ -1,10 +1,12 @@
 import logging
 import threading
 import time
+from typing import Optional
 
 from ctv_server.api.events import emit
 from ctv_server.db import get_db, write_db
 from ctv_server.indexer import index_camera
+from ctv_server.operations import begin_index_job, end_index_job
 from ctv_server.thumbnailer import generate_thumbnail
 
 log = logging.getLogger("ctv.scan")
@@ -21,10 +23,15 @@ def is_scanning(camera_id: int) -> bool:
     return _lock_for(camera_id).locked()
 
 
-def run_camera_scan(camera_id: int, source_path: str) -> dict:
+def run_camera_scan(
+    camera_id: int, source_path: str, expected_generation: Optional[int] = None
+) -> dict:
     """Esegue un solo job per camera e persiste lo stato operativo."""
     lock = _lock_for(camera_id)
     if not lock.acquire(blocking=False):
+        return {"status": "busy", "camera_id": camera_id}
+    if not begin_index_job(expected_generation):
+        lock.release()
         return {"status": "busy", "camera_id": camera_id}
 
     started = time.time()
@@ -32,6 +39,7 @@ def run_camera_scan(camera_id: int, source_path: str) -> dict:
         with write_db() as conn:
             camera = conn.execute("SELECT source_path FROM cameras WHERE id = ?", (camera_id,)).fetchone()
             if not camera:
+                end_index_job()
                 lock.release()
                 return {"status": "removed", "camera_id": camera_id}
             # Usa sempre il percorso corrente: il watcher potrebbe avere letto una configurazione precedente.
@@ -41,6 +49,7 @@ def run_camera_scan(camera_id: int, source_path: str) -> dict:
                 (started, camera_id),
             )
     except Exception:
+        end_index_job()
         lock.release()
         raise
     emit("scan", {"camera_id": camera_id, "status": "started"})
@@ -96,4 +105,5 @@ def run_camera_scan(camera_id: int, source_path: str) -> dict:
         emit("scan", payload)
         return payload
     finally:
+        end_index_job()
         lock.release()

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.17
+
+- Keep indexed timestamps raw and apply only the current camera offset when reading them.
+- Remove the temporary Beta 0.1.15 timestamp compatibility layer.
+- Add an administrator-only Rebuild Index action that preserves camera settings and source files.
+- Rebuild loaded days on demand after clearing recordings, partitions and generated thumbnails.
+
 ## 0.1.16
 
 - Prevent camera offset changes and timeline preparation from competing for the SQLite writer.

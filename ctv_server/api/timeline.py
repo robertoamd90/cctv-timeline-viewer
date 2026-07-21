@@ -30,7 +30,9 @@ def prepare_timeline(
         conn.close()
     jobs = prepare_partitions(ids, from_ts, to_ts)
     for job in jobs:
-        background.add_task(run_partition_scan, job["camera_id"], job["key"], job["path"])
+        background.add_task(
+            run_partition_scan, job["camera_id"], job["key"], job["path"], job["generation"]
+        )
     return {"status": "queued", "partitions": len(jobs)}
 
 

@@ -17,6 +17,11 @@ for example, when a file named `12:00:05` actually begins at `12:00:00`.
 Existing indexed recordings are adjusted immediately and do not need to be
 scanned again.
 
+The administrator-only **Rebuild index** action removes the local recording
+index, loaded day partitions and generated thumbnails while preserving camera
+settings and original files. Days are indexed again when requested from the
+timeline.
+
 ## Permissions
 
 The app is available only to Home Assistant administrators. Administrators can

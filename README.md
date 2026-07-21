@@ -92,6 +92,11 @@ name, set its **Recording time offset** in seconds. For example, choose
 from `12:00:00`. Changing the value also adjusts recordings already indexed, so
 a full rescan is not required.
 
+Administrators can use **Rebuild index** from the Cameras view to clear derived
+recordings, loaded day partitions and generated thumbnails without deleting
+camera settings or source files. Days are indexed again only when opened from
+the timeline. The action is unavailable while an indexing job is active.
+
 Supported recording extensions are MP4, AVI, MKV, MOV, TS, H264, H265, and DAV.
 Image files, including JPEG snapshots, are ignored. Browser compatibility still
 depends on the actual codec; H.264 video in MP4 or MOV is recommended.

@@ -3,11 +3,13 @@ import os
 import threading
 import time
 from datetime import datetime
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from ctv_server.api.events import emit
 from ctv_server.db import get_db, write_db
 from ctv_server.indexer import index_camera
+from ctv_server.operations import begin_index_job, end_index_job, index_generation
 from ctv_server.partitioner import dates_for_range, partition_key, resolve_partition
 from ctv_server.thumbnailer import generate_thumbnail
 
@@ -65,28 +67,38 @@ def invalidate_partition(camera_id: int, key: str, path: str) -> dict:
 
 
 def _generate_thumbnails(camera_id: int, key: str):
+    if not begin_index_job():
+        return
     with _thumbnail_worker:
-        conn = get_db()
-        rows = conn.execute(
-            "SELECT id, path FROM recordings WHERE camera_id = ? AND partition_key = ? "
-            "AND availability = 'available' AND media_kind = 'video' AND thumbnail_path IS NULL",
-            (camera_id, key),
-        ).fetchall()
-        conn.close()
-        updates = []
-        for row in rows:
-            thumb = generate_thumbnail(row["id"], row["path"])
-            if thumb:
-                updates.append((thumb, row["id"]))
-        if updates:
-            with write_db() as conn:
-                conn.executemany("UPDATE recordings SET thumbnail_path = ? WHERE id = ?", updates)
-        emit("partition", {"camera_id": camera_id, "partition": key, "status": "thumbnails_done"})
+        try:
+            conn = get_db()
+            rows = conn.execute(
+                "SELECT id, path FROM recordings WHERE camera_id = ? AND partition_key = ? "
+                "AND availability = 'available' AND media_kind = 'video' AND thumbnail_path IS NULL",
+                (camera_id, key),
+            ).fetchall()
+            conn.close()
+            updates = []
+            for row in rows:
+                thumb = generate_thumbnail(row["id"], row["path"])
+                if thumb:
+                    updates.append((thumb, row["id"]))
+            if updates:
+                with write_db() as conn:
+                    conn.executemany("UPDATE recordings SET thumbnail_path = ? WHERE id = ?", updates)
+            emit("partition", {"camera_id": camera_id, "partition": key, "status": "thumbnails_done"})
+        finally:
+            end_index_job()
 
 
-def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
+def run_partition_scan(
+    camera_id: int, key: str, path: str, expected_generation: Optional[int] = None
+) -> dict:
     lock = _lock_for(camera_id, key)
     if not lock.acquire(blocking=False):
+        return {"camera_id": camera_id, "partition": key, "status": "busy"}
+    if not begin_index_job(expected_generation):
+        lock.release()
         return {"camera_id": camera_id, "partition": key, "status": "busy"}
     try:
         with write_db() as conn:
@@ -177,10 +189,23 @@ def run_partition_scan(camera_id: int, key: str, path: str) -> dict:
         emit("partition", payload)
         return payload
     finally:
+        end_index_job()
         lock.release()
 
 
 def prepare_partitions(camera_ids: list[int], from_ts: float, to_ts: float) -> list[dict]:
+    generation = index_generation()
+    if not begin_index_job(generation):
+        return []
+    try:
+        return _prepare_partitions(camera_ids, from_ts, to_ts, generation)
+    finally:
+        end_index_job()
+
+
+def _prepare_partitions(
+    camera_ids: list[int], from_ts: float, to_ts: float, generation: int
+) -> list[dict]:
     conn = get_db()
     placeholders = ",".join("?" for _ in camera_ids)
     cameras = conn.execute(
@@ -219,7 +244,13 @@ def prepare_partitions(camera_ids: list[int], from_ts: float, to_ts: float) -> l
             ttl = int(os.environ.get("CTV_ACTIVE_PARTITION_SECONDS", default_ttl))
             stale = not row["last_scanned"] or now - row["last_scanned"] >= ttl
             if not candidate["exists"]:
-                jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": True})
+                jobs.append({
+                    "camera_id": camera_id, "key": key, "path": path,
+                    "missing": True, "generation": generation,
+                })
             elif stale and not _lock_for(camera_id, key).locked():
-                jobs.append({"camera_id": camera_id, "key": key, "path": path, "missing": False})
+                jobs.append({
+                    "camera_id": camera_id, "key": key, "path": path,
+                    "missing": False, "generation": generation,
+                })
     return jobs
