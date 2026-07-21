@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -95,6 +96,27 @@ class IndexerTests(unittest.TestCase):
         self.assertEqual(recording, 0)
         self.assertTrue(image.exists())
 
+    def test_camera_time_offset_is_applied_to_indexed_recordings(self):
+        media = self.root / "CAM_20260706002901.mp4"
+        media.write_bytes(b"video-placeholder")
+        conn = db.get_db()
+        conn.execute(
+            "UPDATE cameras SET time_offset_seconds = -4.5 WHERE id = ?", (self.camera_id,)
+        )
+        conn.commit()
+        conn.close()
+
+        with patch("ctv_server.indexer.get_ffprobe_data", return_value={}):
+            index_camera(self.camera_id, str(self.root))
+
+        conn = db.get_db()
+        start_ts = conn.execute(
+            "SELECT start_ts FROM recordings WHERE camera_id = ?", (self.camera_id,)
+        ).fetchone()[0]
+        conn.close()
+        expected = datetime(2026, 7, 6, 0, 29, 1, tzinfo=timezone.utc).timestamp() - 4.5
+        self.assertEqual(start_ts, expected)
+
     def test_queued_scan_ignores_camera_deleted_before_start(self):
         conn = db.get_db()
         conn.execute("DELETE FROM cameras WHERE id = ?", (self.camera_id,))
@@ -169,6 +191,7 @@ class MigrationTests(unittest.TestCase):
             finally:
                 db.DB_PATH = original
             self.assertIn("source_status", camera_columns)
+            self.assertIn("time_offset_seconds", camera_columns)
             self.assertIn("directory_pattern", camera_columns)
             self.assertIn("availability", recording_columns)
             self.assertIn("media_kind", recording_columns)

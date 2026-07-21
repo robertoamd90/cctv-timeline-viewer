@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.15
+
+- Add a configurable recording time offset for each camera.
+- Apply offset changes immediately to recordings already indexed, without requiring a rescan.
+- Resolve the correct physical date partition when an offset crosses midnight.
+
 ## 0.1.14
 
 - Start all active cameras only after a shared seek and buffering barrier.

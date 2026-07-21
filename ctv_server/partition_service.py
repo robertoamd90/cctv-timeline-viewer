@@ -206,7 +206,8 @@ def prepare_partitions(camera_ids: list[int], from_ts: float, to_ts: float) -> l
     now = time.time()
     candidates = []
     for camera in cameras:
-        for day in dates_for_range(from_ts, to_ts, camera["timezone"]):
+        offset = camera["time_offset_seconds"] or 0
+        for day in dates_for_range(from_ts - offset, to_ts - offset, camera["timezone"]):
             key = partition_key(day)
             path = resolve_partition(camera["source_path"], camera["directory_pattern"], day)
             candidates.append({

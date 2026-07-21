@@ -97,9 +97,9 @@ def create_camera(body: CameraCreate, _: CurrentUser = Depends(require_admin)) -
         raise HTTPException(status_code=422, detail=str(exc))
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO cameras (name, source_path, timezone, indexing_mode, directory_pattern, source_status) "
-        "VALUES (?, ?, ?, ?, ?, 'online')",
-        (body.name.strip(), source_path, tz, body.indexing_mode, pattern),
+        "INSERT INTO cameras (name, source_path, timezone, time_offset_seconds, indexing_mode, "
+        "directory_pattern, source_status) VALUES (?, ?, ?, ?, ?, ?, 'online')",
+        (body.name.strip(), source_path, tz, body.time_offset_seconds, body.indexing_mode, pattern),
     )
     conn.commit()
     camera = conn.execute("SELECT * FROM cameras WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -127,6 +127,7 @@ def update_camera(
         previous["indexing_mode"] != body.indexing_mode,
         previous["directory_pattern"] != pattern,
     ))
+    offset_delta = body.time_offset_seconds - previous["time_offset_seconds"]
     thumbnails = []
     if cache_changed:
         thumbnails = [
@@ -137,10 +138,19 @@ def update_camera(
         ]
         conn.execute("DELETE FROM recordings WHERE camera_id = ?", (camera_id,))
         conn.execute("DELETE FROM partitions WHERE camera_id = ?", (camera_id,))
+    elif offset_delta:
+        conn.execute(
+            "UPDATE recordings SET start_ts = start_ts + ?, "
+            "end_ts = CASE WHEN end_ts IS NULL THEN NULL ELSE end_ts + ? END "
+            "WHERE camera_id = ?",
+            (offset_delta, offset_delta, camera_id),
+        )
     cur = conn.execute(
-        "UPDATE cameras SET name = ?, source_path = ?, timezone = ?, indexing_mode = ?, directory_pattern = ?, "
+        "UPDATE cameras SET name = ?, source_path = ?, timezone = ?, time_offset_seconds = ?, "
+        "indexing_mode = ?, directory_pattern = ?, "
         "source_status = 'unknown', source_error = NULL WHERE id = ?",
-        (body.name.strip(), source_path, tz, body.indexing_mode, pattern, camera_id),
+        (body.name.strip(), source_path, tz, body.time_offset_seconds,
+         body.indexing_mode, pattern, camera_id),
     )
     if cur.rowcount == 0:
         conn.close()

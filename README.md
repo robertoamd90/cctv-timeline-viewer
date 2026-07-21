@@ -86,6 +86,12 @@ layout `{YYYY}/{MM}/{DD}`. The app reads only the day directories needed by the
 current timeline and keeps a local cache. It does not assume a retention period:
 files and days disappear from the index when they no longer exist on the source.
 
+If a camera includes pre-event footage before the timestamp encoded in its file
+name, set its **Recording time offset** in seconds. The viewer uses `actual time =
+filename time + offset`: for example, enter `-5` when a file named `12:00:05`
+starts with footage from `12:00:00`. Changing the value also adjusts recordings
+already indexed, so a full rescan is not required.
+
 Supported recording extensions are MP4, AVI, MKV, MOV, TS, H264, H265, and DAV.
 Image files, including JPEG snapshots, are ignored. Browser compatibility still
 depends on the actual codec; H.264 video in MP4 or MOV is recommended.

@@ -24,8 +24,11 @@ def index_camera(
     """Riconcilia una sorgente senza perdere gli ID delle registrazioni."""
     conn = get_db()
     try:
+        cam = conn.execute(
+            "SELECT timezone, time_offset_seconds FROM cameras WHERE id = ?", (camera_id,)
+        ).fetchone()
+        time_offset_seconds = cam["time_offset_seconds"] if cam else 0
         if timezone == "UTC":
-            cam = conn.execute("SELECT timezone FROM cameras WHERE id = ?", (camera_id,)).fetchone()
             if cam and cam["timezone"]:
                 timezone = cam["timezone"]
         existing_query = "SELECT path, size, mtime FROM recordings WHERE camera_id = ?"
@@ -66,7 +69,7 @@ def index_camera(
         start_ts = extract_timestamp(media["filename"], media["path"], timezone)
         media_kind = "video"
         meta = parse_ffprobe(get_ffprobe_data(media["path"]))
-        start_ts = start_ts or meta.get("creation_time") or media["mtime"]
+        start_ts = (start_ts or meta.get("creation_time") or media["mtime"]) + time_offset_seconds
         duration = meta.get("duration", 0) or 0
         end_ts = start_ts + duration if duration > 0 else None
         file_hash = hash_file(media["path"]) if os.environ.get("CTV_HASH_FILES") == "1" else None

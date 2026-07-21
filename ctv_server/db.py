@@ -40,6 +40,7 @@ def init_db():
             name TEXT NOT NULL,
             source_path TEXT NOT NULL,
             timezone TEXT DEFAULT 'UTC',
+            time_offset_seconds REAL NOT NULL DEFAULT 0,
             config TEXT DEFAULT '{}',
             indexing_mode TEXT NOT NULL DEFAULT 'partitioned',
             directory_pattern TEXT NOT NULL DEFAULT '{YYYY}/{MM}/{DD}',
@@ -93,6 +94,7 @@ def init_db():
     """)
     # Migrazioni additive per database creati dalle versioni PoC.
     _add_columns(conn, "cameras", (
+        "time_offset_seconds REAL NOT NULL DEFAULT 0",
         "indexing_mode TEXT NOT NULL DEFAULT 'partitioned'",
         "directory_pattern TEXT NOT NULL DEFAULT '{YYYY}/{MM}/{DD}'",
         "source_status TEXT NOT NULL DEFAULT 'unknown'",
