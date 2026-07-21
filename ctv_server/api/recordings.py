@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
-from ctv_server.db import get_db
+from ctv_server.db import RECORDING_TIME_DELTA_SQL, get_db, recording_time_delta
 
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 
@@ -11,7 +11,13 @@ def _public_recording(row) -> dict:
         "id", "camera_id", "filename", "start_ts", "end_ts", "duration",
         "codec", "resolution", "fps", "size", "media_kind", "availability",
     )
-    return {key: row[key] for key in allowed if key in row.keys()}
+    result = {key: row[key] for key in allowed if key in row.keys()}
+    offset = recording_time_delta(row)
+    if "start_ts" in result:
+        result["start_ts"] += offset
+    if result.get("end_ts") is not None:
+        result["end_ts"] += offset
+    return result
 
 
 @router.get("")
@@ -23,20 +29,20 @@ def list_recordings(
     offset: int = 0,
 ):
     conn = get_db()
-    query = "SELECT * FROM recordings WHERE availability = 'available'"
+    query = "SELECT r.*, c.time_offset_seconds FROM recordings r JOIN cameras c ON c.id = r.camera_id WHERE r.availability = 'available'"
     params: list = []
 
     if camera_id is not None:
-        query += " AND camera_id = ?"
+        query += " AND r.camera_id = ?"
         params.append(camera_id)
     if from_ts is not None:
-        query += " AND COALESCE(end_ts, start_ts) >= ?"
+        query += f" AND COALESCE(r.end_ts, r.start_ts) + {RECORDING_TIME_DELTA_SQL} >= ?"
         params.append(from_ts)
     if to_ts is not None:
-        query += " AND start_ts <= ?"
+        query += f" AND r.start_ts + {RECORDING_TIME_DELTA_SQL} <= ?"
         params.append(to_ts)
 
-    query += " ORDER BY start_ts LIMIT ? OFFSET ?"
+    query += f" ORDER BY r.start_ts + {RECORDING_TIME_DELTA_SQL} LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
     rows = conn.execute(query, params).fetchall()
@@ -47,7 +53,10 @@ def list_recordings(
 @router.get("/{recording_id}")
 def get_recording(recording_id: int):
     conn = get_db()
-    row = conn.execute("SELECT * FROM recordings WHERE id = ? AND availability = 'available'", (recording_id,)).fetchone()
+    row = conn.execute(
+        "SELECT r.*, c.time_offset_seconds FROM recordings r JOIN cameras c ON c.id = r.camera_id "
+        "WHERE r.id = ? AND r.availability = 'available'", (recording_id,)
+    ).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404)

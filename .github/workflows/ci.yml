@@ -37,6 +37,7 @@ jobs:
           node tests/test_geometry.js
           node tests/test_mobile_layout.js
           node tests/test_media.js
+          node tests/test_camera_form.js
           sh -n scripts/release.sh
       - name: Validate Home Assistant app metadata
         run: |

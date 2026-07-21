@@ -1,10 +1,13 @@
 import tempfile
+import threading
+import time
 import unittest
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ctv_server import db
+from ctv_server.db import write_db
 from ctv_server.partition_service import prepare_partitions, run_partition_scan
 from ctv_server.partitioner import dates_for_range, resolve_partition, validate_pattern
 from ctv_server.api.timeline import get_timeline
@@ -96,6 +99,44 @@ class PartitionIndexTests(unittest.TestCase):
 
         self.assertEqual([job["key"] for job in jobs], ["2026-07-12"])
         self.assertEqual(jobs[0]["path"], str(next_day))
+
+    def test_timeline_preparation_waits_for_concurrent_writer(self):
+        writer_started = threading.Event()
+        release_writer = threading.Event()
+        errors = []
+
+        def hold_writer():
+            with write_db() as conn:
+                conn.execute(
+                    "UPDATE cameras SET source_status = 'scanning' WHERE id = ?", (self.camera_id,)
+                )
+                writer_started.set()
+                release_writer.wait(timeout=2)
+
+        tz = ZoneInfo("Europe/Rome")
+        start = datetime(2026, 7, 11, 0, 0, tzinfo=tz).timestamp()
+        end = datetime(2026, 7, 12, 0, 0, tzinfo=tz).timestamp()
+        holder = threading.Thread(target=hold_writer)
+        holder.start()
+        self.assertTrue(writer_started.wait(timeout=1))
+
+        worker = threading.Thread(
+            target=lambda: self._prepare_without_error(start, end, errors)
+        )
+        worker.start()
+        time.sleep(0.05)
+        self.assertTrue(worker.is_alive())
+        release_writer.set()
+        holder.join(timeout=2)
+        worker.join(timeout=2)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+
+    def _prepare_without_error(self, start, end, errors):
+        try:
+            prepare_partitions([self.camera_id], start, end)
+        except Exception as exc:
+            errors.append(exc)
 
 
 if __name__ == "__main__":

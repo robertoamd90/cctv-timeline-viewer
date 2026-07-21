@@ -163,8 +163,14 @@
         <label for="cam-tz" style="margin-top:6px;" data-i18n="cameras.timezone">Timezone</label>
         <select id="cam-tz" aria-label="Timezone"></select>
         <label for="cam-time-offset" style="margin-top:6px;" data-i18n="cameras.timeOffset">Recording time offset</label>
-        <input type="number" id="cam-time-offset" value="0" min="-3600" max="3600" step="0.1" inputmode="decimal">
-        <div class="hint" data-i18n="cameras.timeOffsetHint">Actual time = filename time + offset. Example: use -5 when 12:00:05 in the filename starts at 12:00:00.</div>
+        <div class="offset-input-row">
+          <select id="cam-offset-direction" data-i18n-aria-label="cameras.timeOffsetDirection">
+            <option value="-1" data-i18n="cameras.timeOffsetEarlier">Earlier (-)</option>
+            <option value="1" data-i18n="cameras.timeOffsetLater">Later (+)</option>
+          </select>
+          <input type="number" id="cam-time-offset" value="0" min="0" max="3600" step="0.1" inputmode="decimal">
+        </div>
+        <div class="hint" data-i18n="cameras.timeOffsetHint">Example: choose Earlier and enter 5 when a file named 12:00:05 starts at 12:00:00.</div>
         <label for="cam-indexing-mode" style="margin-top:6px;" data-i18n="cameras.indexing">Indexing</label>
         <select id="cam-indexing-mode">
           <option value="partitioned" data-i18n="cameras.partitioned">Partitioned by date</option>

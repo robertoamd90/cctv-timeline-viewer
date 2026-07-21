@@ -1,8 +1,21 @@
 import sqlite3
 import os
+import threading
 from collections.abc import Iterable
+from contextlib import contextmanager
 
 DB_PATH = os.environ.get("CTV_DB", os.path.expanduser("~/.ctv/ctv.db"))
+_WRITE_LOCK = threading.Lock()
+RECORDING_TIME_DELTA_SQL = (
+    "(COALESCE(c.time_offset_seconds, 0) - COALESCE(r.time_offset_applied_seconds, 0))"
+)
+
+
+def recording_time_delta(row) -> float:
+    keys = row.keys()
+    configured = row["time_offset_seconds"] if "time_offset_seconds" in keys else 0
+    applied = row["time_offset_applied_seconds"] if "time_offset_applied_seconds" in keys else 0
+    return (configured or 0) - (applied or 0)
 
 
 def get_db() -> sqlite3.Connection:
@@ -16,7 +29,23 @@ def get_db() -> sqlite3.Connection:
     if row and row[0].lower() != "wal":
         conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=30000")
     return conn
+
+
+@contextmanager
+def write_db():
+    """Serialize SQLite writers while allowing WAL readers to continue."""
+    with _WRITE_LOCK:
+        conn = get_db()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
 
 def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
@@ -70,6 +99,7 @@ def init_db():
             media_kind TEXT NOT NULL DEFAULT 'video',
             availability TEXT NOT NULL DEFAULT 'available',
             last_seen REAL,
+            time_offset_applied_seconds REAL NOT NULL DEFAULT 0,
             UNIQUE(camera_id, path)
         );
 
@@ -102,13 +132,25 @@ def init_db():
         "last_scan_started REAL",
         "last_scan_completed REAL",
     ))
+    recording_columns = _columns(conn, "recordings")
+    offset_marker_missing = "time_offset_applied_seconds" not in recording_columns
     _add_columns(conn, "recordings", (
         "mtime REAL",
         "partition_key TEXT",
         "media_kind TEXT NOT NULL DEFAULT 'video'",
         "availability TEXT NOT NULL DEFAULT 'available'",
         "last_seen REAL",
+        "time_offset_applied_seconds REAL NOT NULL DEFAULT 0",
     ))
+    if offset_marker_missing:
+        # Beta 0.1.15 stored the then-current camera offset directly in timestamps.
+        # Remember that applied value so future reads can compensate without rewriting rows.
+        conn.execute("""
+            UPDATE recordings
+            SET time_offset_applied_seconds = COALESCE(
+                (SELECT c.time_offset_seconds FROM cameras c WHERE c.id = recordings.camera_id), 0
+            )
+        """)
     _add_columns(conn, "partitions", (
         "progress_done INTEGER NOT NULL DEFAULT 0",
         "progress_total INTEGER NOT NULL DEFAULT 0",

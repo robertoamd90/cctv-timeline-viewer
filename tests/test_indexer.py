@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ctv_server import db
+from ctv_server.api.recordings import list_recordings
 from ctv_server.indexer import index_camera
 from ctv_server.scan_service import run_camera_scan
 
@@ -96,7 +97,7 @@ class IndexerTests(unittest.TestCase):
         self.assertEqual(recording, 0)
         self.assertTrue(image.exists())
 
-    def test_camera_time_offset_is_applied_to_indexed_recordings(self):
+    def test_camera_time_offset_is_applied_at_read_time(self):
         media = self.root / "CAM_20260706002901.mp4"
         media.write_bytes(b"video-placeholder")
         conn = db.get_db()
@@ -114,8 +115,12 @@ class IndexerTests(unittest.TestCase):
             "SELECT start_ts FROM recordings WHERE camera_id = ?", (self.camera_id,)
         ).fetchone()[0]
         conn.close()
-        expected = datetime(2026, 7, 6, 0, 29, 1, tzinfo=timezone.utc).timestamp() - 4.5
-        self.assertEqual(start_ts, expected)
+        raw = datetime(2026, 7, 6, 0, 29, 1, tzinfo=timezone.utc).timestamp()
+        self.assertEqual(start_ts, raw)
+        public = list_recordings(
+            camera_id=self.camera_id, from_ts=None, to_ts=None, limit=100, offset=0
+        )
+        self.assertEqual(public[0]["start_ts"], raw - 4.5)
 
     def test_queued_scan_ignores_camera_deleted_before_start(self):
         conn = db.get_db()
@@ -163,6 +168,50 @@ class IndexerTests(unittest.TestCase):
 
 
 class MigrationTests(unittest.TestCase):
+    def test_beta_0115_adjusted_timestamps_are_not_offset_twice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "beta.db")
+            conn = sqlite3.connect(path)
+            conn.executescript("""
+                CREATE TABLE cameras (
+                    id INTEGER PRIMARY KEY, name TEXT NOT NULL, source_path TEXT NOT NULL,
+                    timezone TEXT DEFAULT 'UTC', time_offset_seconds REAL NOT NULL DEFAULT 0,
+                    config TEXT DEFAULT '{}', indexing_mode TEXT NOT NULL DEFAULT 'full',
+                    directory_pattern TEXT NOT NULL DEFAULT '{YYYY}/{MM}/{DD}',
+                    source_status TEXT NOT NULL DEFAULT 'unknown', source_error TEXT,
+                    last_scan_started REAL, last_scan_completed REAL
+                );
+                CREATE TABLE recordings (
+                    id INTEGER PRIMARY KEY, camera_id INTEGER NOT NULL, path TEXT NOT NULL,
+                    filename TEXT NOT NULL, start_ts REAL NOT NULL, end_ts REAL, duration REAL,
+                    codec TEXT, resolution TEXT, fps REAL, size INTEGER, mtime REAL, hash TEXT,
+                    thumbnail_path TEXT, metadata TEXT DEFAULT '{}', partition_key TEXT,
+                    media_kind TEXT NOT NULL DEFAULT 'video', availability TEXT NOT NULL DEFAULT 'available',
+                    last_seen REAL, UNIQUE(camera_id, path)
+                );
+                INSERT INTO cameras (id, name, source_path, time_offset_seconds)
+                VALUES (1, 'Beta', '.', -5);
+                INSERT INTO recordings (camera_id, path, filename, start_ts, end_ts)
+                VALUES (1, 'clip.mp4', 'clip.mp4', 95, 105);
+            """)
+            conn.close()
+            original = db.DB_PATH
+            try:
+                db.DB_PATH = path
+                db.init_db()
+                result = list_recordings(
+                    camera_id=1, from_ts=None, to_ts=None, limit=100, offset=0
+                )
+                conn = db.get_db()
+                applied = conn.execute(
+                    "SELECT time_offset_applied_seconds FROM recordings"
+                ).fetchone()[0]
+                conn.close()
+            finally:
+                db.DB_PATH = original
+            self.assertEqual(applied, -5)
+            self.assertEqual((result[0]["start_ts"], result[0]["end_ts"]), (95, 105))
+
     def test_poc_database_is_migrated(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "legacy.db")
