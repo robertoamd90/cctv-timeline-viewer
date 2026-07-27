@@ -10,6 +10,7 @@ already available as files on the local filesystem.
 - Timeline navigation, zoom, day selection, and configurable camera layouts.
 - Efficient day-based indexing for large local, SMB, and NFS archives.
 - Read-only access to recordings.
+- Native or server-transcoded playback profiles for slower client connections.
 - Home Assistant Ingress support with administrator-only configuration.
 - English and Italian user interfaces.
 
@@ -96,6 +97,27 @@ Administrators can use **Rebuild index** from the Cameras view to clear derived
 recordings, loaded day partitions and generated thumbnails without deleting
 camera settings or source files. Days are indexed again only when opened from
 the timeline. The action is unavailable while an indexing job is active.
+
+## Streaming Quality
+
+The **Stream** menu stores two preferences in the current browser:
+
+- **Native** sends the original recording unchanged.
+- **Balanced** and **Fast** transcode the original on the CCTV Viewer server
+  before sending it to the browser. The NAS-to-server read remains native.
+- **Metadata** preload minimizes traffic while paused. **Automatic** lets the
+  browser preload more data and can start playback sooner at the cost of
+  bandwidth and server work.
+
+Administrators can configure the scale percentage, output frame rate and
+maximum bitrate of Balanced and Fast from the Cameras view. Percentage scaling
+preserves the source aspect ratio for both 4:3 and 16:9 recordings. Accelerated
+playback is encoded into compressed streams, so selecting 16x does not ask the
+browser to consume sixteen times the configured bitrate.
+
+Transcoding consumes CPU on the machine running CCTV Viewer. Native remains the
+best choice on a fast local network; Balanced and Fast target VPN, mobile and
+other bandwidth-constrained connections.
 
 Supported recording extensions are MP4, AVI, MKV, MOV, TS, H264, H265, and DAV.
 Image files, including JPEG snapshots, are ignored. Browser compatibility still

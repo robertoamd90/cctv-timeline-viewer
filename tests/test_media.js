@@ -1,6 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer, medianTime } = require('../ctv_web/js/media.js');
+const {
+  safeSeekTarget,
+  playbackCompleted,
+  requiredPlaybackBuffer,
+  playbackPlan,
+  mediaTimeForTimeline,
+  timelineTimeForMedia,
+  medianTime,
+} = require('../ctv_web/js/media.js');
 const playerSource = fs.readFileSync(require.resolve('../ctv_web/js/player.js'), 'utf8');
 
 assert.equal(medianTime([]), null);
@@ -34,9 +42,22 @@ assert.equal(requiredPlaybackBuffer(16, 26, 30), 3.5);
 assert.equal(requiredPlaybackBuffer(16, 29.7, 30), 0);
 assert.equal(requiredPlaybackBuffer(1, 10, NaN), 0.75);
 
+assert.deepEqual(playbackPlan('native', 16), {
+  transcoded: false, streamSpeed: 1, playbackRate: 16,
+});
+assert.deepEqual(playbackPlan('balanced', 16), {
+  transcoded: true, streamSpeed: 16, playbackRate: 1,
+});
+assert.deepEqual(playbackPlan('fast', 0.5), {
+  transcoded: true, streamSpeed: 1, playbackRate: 0.5,
+});
+assert.equal(mediaTimeForTimeline(130, 100, 10, 4, 20), 5);
+assert.equal(timelineTimeForMedia(5, 100, 10, 4), 130);
+
 assert.match(playerSource, /preload="metadata"/);
-assert.match(playerSource, /v\.preload = 'metadata'/);
+assert.match(playerSource, /v\.preload = S\.preloadMode/);
 assert.match(playerSource, /readyState < HTMLMediaElement\.HAVE_CURRENT_DATA/);
-assert.doesNotMatch(playerSource, /preload="auto"/);
+assert(playerSource.includes('/stream/${rec.id}'));
+assert.match(playerSource, /ctv-preload-mode/);
 
 console.log('Media state tests passed');

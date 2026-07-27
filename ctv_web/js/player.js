@@ -3,13 +3,34 @@
    ═══════════════════════════════════════════ */
 
 let _clockStartTime = null, _clockStartWall = null, _tickId = null;
-let _playerCache = {};  // camId → {recId}
+let _playerCache = {};  // camId → {recId, sourceKey}
 let _wasBuffering = false;
 
-function seekVideo(video, recordingStart) {
+function playerSourceKey(rec) {
+  if (!rec) return '';
+  const plan = CtvMedia.playbackPlan(S.streamProfile, S.speed);
+  return `${rec.id}:${S.streamProfile}:${plan.streamSpeed}:${S.streamProfileRevision}`;
+}
+
+function videoPlaybackRate(video) {
+  const value = parseFloat(video.parentElement.dataset.playbackRate);
+  return Number.isFinite(value) && value > 0 ? value : S.speed;
+}
+
+function videoTargetTime(video, globalTime = S.currentTime) {
+  const cell = video.parentElement;
+  return CtvMedia.mediaTimeForTimeline(
+    globalTime,
+    parseFloat(cell.dataset.start),
+    parseFloat(cell.dataset.streamOffset) || 0,
+    parseFloat(cell.dataset.streamSpeed) || 1,
+    parseFloat(cell.dataset.duration),
+  );
+}
+
+function seekVideo(video) {
   if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
-  const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-  const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, expectedDuration);
+  const target = videoTargetTime(video);
   // Assigning the target also asks a metadata-only player for the selected
   // frame, including when that frame is at the beginning of the recording.
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
@@ -20,7 +41,7 @@ function seekVideo(video, recordingStart) {
 }
 
 // ── Render tutti i player ──
-function renderPlayers() {
+function renderPlayers(forceReload = false) {
   const area = document.getElementById('player-area');
   const displayed = displayedCameras();
   const camIds = displayed.map(c => c.id);
@@ -57,15 +78,16 @@ function renderPlayers() {
     area.appendChild(cell);
 
     const cached = _playerCache[cid];
-    const needUpdate = !cached || cached.recId !== (rec ? String(rec.id) : '');
+    const sourceKey = playerSourceKey(rec);
+    const needUpdate = forceReload || !cached || cached.sourceKey !== sourceKey;
     if (needUpdate) {
       updatePlayerCell(cell, cam, rec, cid);
-      _playerCache[cid] = { recId: rec ? String(rec.id) : '' };
+      _playerCache[cid] = { recId: rec ? String(rec.id) : '', sourceKey };
     }
 
     const video = cell.querySelector('video');
     if (video && rec && S.currentTime != null) {
-      seekVideo(video, rec.start_ts);
+      seekVideo(video);
     }
   });
   applyHotspotCellPositions();
@@ -91,10 +113,24 @@ function updatePlayerCell(cell, cam, rec, cid) {
 
   if (rec) {
     const recId = String(rec.id);
+    const originalDuration = rec.duration ??
+      Math.max(0, (rec.end_ts ?? rec.start_ts) - rec.start_ts);
+    const plan = CtvMedia.playbackPlan(S.streamProfile, S.speed);
+    const maxOffset = Math.max(0, originalDuration - 0.05);
+    const streamOffset = plan.transcoded
+      ? Math.min(maxOffset, Math.max(0, (S.currentTime ?? rec.start_ts) - rec.start_ts))
+      : 0;
+    const streamDuration = plan.transcoded
+      ? Math.max(0, (originalDuration - streamOffset) / plan.streamSpeed)
+      : originalDuration;
     cell.dataset.recording = recId;
     v.dataset.recording = recId;
     cell.dataset.start = String(rec.start_ts);
-    cell.dataset.duration = String(rec.duration ?? Math.max(0, (rec.end_ts ?? rec.start_ts) - rec.start_ts));
+    cell.dataset.streamOffset = String(streamOffset);
+    cell.dataset.streamSpeed = String(plan.streamSpeed);
+    cell.dataset.playbackRate = String(plan.playbackRate);
+    cell.dataset.duration = String(streamDuration);
+    cell.dataset.profile = S.streamProfile;
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '1';
     cell.dataset.failed = '0';
@@ -107,7 +143,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.hidden = false;
     setPlayerStatus(cell, t('player.loading'));
     v.pause();
-    v.playbackRate = S.speed;
+    v.playbackRate = plan.playbackRate;
     v.loop = false;
     v.onended = () => {
       if (v.dataset.metadataReady !== '1' || v.dataset.hasPlayed !== '1') return;
@@ -120,7 +156,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     };
     v.onloadedmetadata = () => {
       v.dataset.metadataReady = '1';
-      seekVideo(v, rec.start_ts);
+      seekVideo(v);
     };
     v.onloadeddata = () => clearStatusWhenReady(v);
     v.oncanplay = () => clearStatusWhenReady(v);
@@ -156,16 +192,29 @@ function updatePlayerCell(cell, cam, rec, cid) {
       cell.dataset.failed = '1'; cell.dataset.buffering = '0';
       setPlayerStatus(cell, t('player.unplayable'), true);
     };
-    // Let the browser fetch only the container metadata while paused. Playback
-    // and seeking will request media ranges when they are actually needed.
-    v.preload = 'metadata';
-    v.src = appUrl(`/video/${rec.id}`);
+    // This is a per-browser preference because preload behavior varies by
+    // engine and connection. Browsers may still treat it as a hint.
+    v.preload = S.preloadMode;
+    if (plan.transcoded) {
+      const query = new URLSearchParams({
+        profile: S.streamProfile,
+        start: streamOffset.toFixed(3),
+        speed: String(plan.streamSpeed),
+      });
+      v.src = appUrl(`/stream/${rec.id}?${query}`);
+    } else {
+      v.src = appUrl(`/video/${rec.id}`);
+    }
     v.load();
   } else {
     cell.dataset.recording = '';
     v.dataset.recording = '';
     cell.dataset.start = '';
+    cell.dataset.streamOffset = '';
+    cell.dataset.streamSpeed = '';
+    cell.dataset.playbackRate = '';
     cell.dataset.duration = '';
+    cell.dataset.profile = '';
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '0';
     cell.dataset.failed = '0';
@@ -285,6 +334,10 @@ function updateAutoHotspot(previousTime, currentTime) {
 
 // ── Seek ──
 function seekPlayersToTime() {
+  if (S.streamProfile !== 'native') {
+    renderPlayers(true);
+    return;
+  }
   let needsRender = false;
   displayedCameras().forEach(c => {
     const rec = findRecordingAt(c.id, S.currentTime);
@@ -298,14 +351,18 @@ function seekPlayersToTime() {
     document.querySelectorAll('#player-area video').forEach(v => {
       const recStart = parseFloat(v.parentElement.dataset.start);
       if (S.currentTime != null && !isNaN(recStart)) {
-        seekVideo(v, recStart);
+        seekVideo(v);
       }
     });
   }
 }
 
 function seekCurrentTime() {
-  if (S.currentTime != null) { renderPlayers(); updateCursor(); updateTimeDisplay(); }
+  if (S.currentTime != null) {
+    renderPlayers(S.streamProfile !== 'native');
+    updateCursor();
+    updateTimeDisplay();
+  }
 }
 
 // ── Video ended → move the single global clock past the segment boundary ──
@@ -353,7 +410,7 @@ function bufferedAheadAt(video, current) {
 
 function requiredBuffer(video, currentTime = video.currentTime) {
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-  return CtvMedia.requiredPlaybackBuffer(S.speed, currentTime, expectedDuration);
+  return CtvMedia.requiredPlaybackBuffer(videoPlaybackRate(video), currentTime, expectedDuration);
 }
 
 function videoReachedEnd(video) {
@@ -373,7 +430,7 @@ function videoHasPlaybackBuffer(video) {
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
   const start = parseFloat(video.parentElement.dataset.start);
   const warmingTarget = video.dataset.warming === '1' && S.currentTime != null && Number.isFinite(start)
-    ? CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration)
+    ? videoTargetTime(video)
     : null;
   const bufferPosition = warmingTarget ?? video.currentTime;
   if (Number.isFinite(expectedDuration) && bufferPosition >= expectedDuration - 0.5) {
@@ -387,8 +444,15 @@ function videoHasPlaybackBuffer(video) {
 }
 
 function absoluteVideoTime(video) {
-  const start = parseFloat(video.parentElement.dataset.start);
-  return Number.isFinite(start) ? start + video.currentTime : null;
+  const cell = video.parentElement;
+  const start = parseFloat(cell.dataset.start);
+  if (!Number.isFinite(start)) return null;
+  return CtvMedia.timelineTimeForMedia(
+    video.currentTime,
+    start,
+    parseFloat(cell.dataset.streamOffset) || 0,
+    parseFloat(cell.dataset.streamSpeed) || 1,
+  );
 }
 
 function enterBufferingBarrier(source, message) {
@@ -404,7 +468,7 @@ function enterBufferingBarrier(source, message) {
     if (!videoHasPlaybackBuffer(video)) {
       video.dataset.warming = '1';
       showFreezeFrame(video);
-      video.playbackRate = S.speed;
+      video.playbackRate = videoPlaybackRate(video);
       video.play().catch(() => {});
     } else {
       video.dataset.warming = '0';
@@ -425,8 +489,7 @@ function alignVideos(videos) {
       aligned = false;
       return;
     }
-    const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-    const target = CtvMedia.safeSeekTarget(S.currentTime, start, expectedDuration);
+    const target = videoTargetTime(video);
     if (Math.abs(video.currentTime - target) > 0.1) {
       video.currentTime = target;
       setPlayerStatus(video.parentElement, t('player.buffering'));
@@ -464,9 +527,37 @@ document.getElementById('btn-play').onclick = () => {
   startClock();
 };
 
+function reloadPlaybackStreams() {
+  const wasPlaying = S.playing;
+  if (_tickId) { cancelAnimationFrame(_tickId); _tickId = null; }
+  _wasBuffering = false;
+  getVideos().forEach(video => video.pause());
+  renderPlayers(true);
+  if (wasPlaying) {
+    enterBufferingBarrier(null, null);
+    startClock();
+  }
+}
+
 document.getElementById('speed-select').onchange = function() {
   S.speed = parseFloat(this.value);
-  getVideos().forEach(v => { v.playbackRate = S.speed; });
+  if (S.streamProfile === 'native') {
+    getVideos().forEach(v => { v.playbackRate = S.speed; });
+  } else {
+    reloadPlaybackStreams();
+  }
+};
+
+document.getElementById('quality-select').onchange = function() {
+  S.streamProfile = this.value;
+  localStorage.setItem('ctv-stream-profile', S.streamProfile);
+  reloadPlaybackStreams();
+};
+
+document.getElementById('preload-select').onchange = function() {
+  S.preloadMode = this.value === 'auto' ? 'auto' : 'metadata';
+  localStorage.setItem('ctv-preload-mode', S.preloadMode);
+  reloadPlaybackStreams();
 };
 
 function updatePlayButton() {
@@ -520,7 +611,7 @@ function clockTick() {
     videos.forEach(video => {
       video.dataset.warming = '0';
       setPlayerStatus(video.parentElement, '');
-      video.playbackRate = S.speed;
+      video.playbackRate = videoPlaybackRate(video);
       revealFreezeOnNextFrame(video);
       video.play().catch(() => enterBufferingBarrier(video, t('player.buffering')));
     });

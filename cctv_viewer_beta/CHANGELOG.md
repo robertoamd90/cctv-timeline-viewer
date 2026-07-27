@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.19
+
+- Add Native, Balanced and Fast client streaming quality modes.
+- Preserve each recording's aspect ratio by configuring compressed profiles with a scale percentage.
+- Let administrators configure scale, frame rate and maximum bitrate for Balanced and Fast.
+- Bake accelerated playback into compressed streams to keep client bandwidth bounded at high speeds.
+- Add a per-browser Metadata or Automatic preload preference.
+
 ## 0.1.18
 
 - Load video metadata instead of preloading complete clips before playback.
