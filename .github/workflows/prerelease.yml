@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -41,3 +41,31 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/cctv-viewer-beta:${{ steps.version.outputs.value }}
             ghcr.io/${{ github.repository_owner }}/cctv-viewer-beta:latest
+      - name: Expose published beta to Home Assistant
+        env:
+          BETA_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir -p /tmp/cctv-beta-metadata
+          cp cctv_viewer_beta/config.yaml \
+             cctv_viewer_beta/CHANGELOG.md \
+             cctv_viewer_beta/DOCS.md \
+             /tmp/cctv-beta-metadata/
+
+          git fetch origin main
+          git checkout --detach origin/main
+          cp /tmp/cctv-beta-metadata/config.yaml cctv_viewer_beta/config.yaml
+          cp /tmp/cctv-beta-metadata/CHANGELOG.md cctv_viewer_beta/CHANGELOG.md
+          cp /tmp/cctv-beta-metadata/DOCS.md cctv_viewer_beta/DOCS.md
+
+          if git diff --quiet -- cctv_viewer_beta; then
+            echo "Beta ${BETA_VERSION} is already exposed on main."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cctv_viewer_beta/config.yaml \
+                  cctv_viewer_beta/CHANGELOG.md \
+                  cctv_viewer_beta/DOCS.md
+          git commit -m "Expose CCTV Viewer Beta ${BETA_VERSION}"
+          git push origin HEAD:main

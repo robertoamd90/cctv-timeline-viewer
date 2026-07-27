@@ -142,6 +142,11 @@ the beta line; pushes to it publish the beta image. A promotion is done by
 opening a pull request from `pre-release` to `main`, then creating a stable
 `vX.Y.Z` tag on the merged commit.
 
+After the multi-architecture Beta image has been published successfully, the
+pre-release workflow copies only the Beta manifest, changelog and documentation
+to `main`. Home Assistant therefore discovers the update only when its matching
+image is ready; application source remains isolated on `pre-release`.
+
 For a local Supervisor build without publishing an image, run this from the
 repository root:
 
