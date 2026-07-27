@@ -5,8 +5,8 @@ import mimetypes
 import re
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from ctv_server.db import init_db, get_db
@@ -14,6 +14,7 @@ from ctv_server.api import cameras, recordings, scan, timeline, search, events, 
 from ctv_server.auth import user_from_request
 from ctv_server.config import is_home_assistant, trusted_ingress_proxies
 from ctv_server.mp4 import file_duration_patches, patch_chunk
+from ctv_server.streaming import get_stream_profiles, transcode_stream
 
 # ── Logging ──
 logging.basicConfig(
@@ -160,6 +161,38 @@ def serve_video(recording_id: int):
     # FileResponse gestisce nativamente i range request (Content-Range)
     media_type = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
     return VideoFileResponse(filepath, media_type=media_type, expected_duration=row["duration"])
+
+
+@app.get("/stream/{recording_id}")
+async def serve_transcoded_video(
+    recording_id: int,
+    profile: str = Query(..., pattern="^(balanced|fast)$"),
+    start: float = Query(0, ge=0),
+    speed: float = Query(1, ge=1, le=16),
+):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT path, availability, duration FROM recordings WHERE id = ?", (recording_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    if row["availability"] != "available":
+        raise HTTPException(status_code=410, detail="Recording no longer available")
+    if not os.path.isfile(row["path"]):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    duration = float(row["duration"] or 0)
+    if duration > 0 and start >= duration:
+        raise HTTPException(status_code=416, detail="Stream offset is outside the recording")
+    selected_profile = get_stream_profiles()[profile]
+    return StreamingResponse(
+        transcode_stream(row["path"], selected_profile, start, speed),
+        media_type="video/mp4",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 # ── Frontend statico ──
