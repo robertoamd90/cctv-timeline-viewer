@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.18
+
+- Load video metadata instead of preloading complete clips before playback.
+- Avoid unnecessary parallel video transfers while browsing or seeking on slower connections.
+
 ## 0.1.17
 
 - Keep indexed timestamps raw and apply only the current camera offset when reading them.

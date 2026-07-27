@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { safeSeekTarget, playbackCompleted, requiredPlaybackBuffer, medianTime } = require('../ctv_web/js/media.js');
+const playerSource = fs.readFileSync(require.resolve('../ctv_web/js/player.js'), 'utf8');
 
 assert.equal(medianTime([]), null);
 assert.equal(medianTime([12]), 12);
@@ -31,5 +33,10 @@ assert.equal(requiredPlaybackBuffer(16, 10, 30), 4);
 assert.equal(requiredPlaybackBuffer(16, 26, 30), 3.5);
 assert.equal(requiredPlaybackBuffer(16, 29.7, 30), 0);
 assert.equal(requiredPlaybackBuffer(1, 10, NaN), 0.75);
+
+assert.match(playerSource, /preload="metadata"/);
+assert.match(playerSource, /v\.preload = 'metadata'/);
+assert.match(playerSource, /readyState < HTMLMediaElement\.HAVE_CURRENT_DATA/);
+assert.doesNotMatch(playerSource, /preload="auto"/);
 
 console.log('Media state tests passed');
