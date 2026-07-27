@@ -10,7 +10,12 @@ function seekVideo(video, recordingStart) {
   if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
   const target = CtvMedia.safeSeekTarget(S.currentTime, recordingStart, expectedDuration);
-  if (Math.abs(video.currentTime - target) > 0.05) video.currentTime = target;
+  // Assigning the target also asks a metadata-only player for the selected
+  // frame, including when that frame is at the beginning of the recording.
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+      Math.abs(video.currentTime - target) > 0.05) {
+    video.currentTime = target;
+  }
   return true;
 }
 
@@ -76,7 +81,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
       <div class="empty-state" hidden></div>
       <canvas class="player-freeze" hidden></canvas>
       <video muted playsinline webkit-playsinline disablepictureinpicture
-        controlslist="nofullscreen nodownload noremoteplayback" preload="auto" hidden></video>`;
+        controlslist="nofullscreen nodownload noremoteplayback" preload="metadata" hidden></video>`;
     v = cell.querySelector('video');
     v.playsInline = true;
   }
@@ -151,6 +156,9 @@ function updatePlayerCell(cell, cam, rec, cid) {
       cell.dataset.failed = '1'; cell.dataset.buffering = '0';
       setPlayerStatus(cell, t('player.unplayable'), true);
     };
+    // Let the browser fetch only the container metadata while paused. Playback
+    // and seeking will request media ranges when they are actually needed.
+    v.preload = 'metadata';
     v.src = appUrl(`/video/${rec.id}`);
     v.load();
   } else {
