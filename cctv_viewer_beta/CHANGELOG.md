@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.20
+
+- Use native HLS delivery for compressed profiles on iOS and other WebKit clients.
+- Keep fragmented MP4 streaming on browsers where it is already supported.
+- Remove temporary HLS segments automatically after playback.
+
 ## 0.1.19
 
 - Add Native, Balanced and Fast client streaming quality modes.
