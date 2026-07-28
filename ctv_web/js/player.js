@@ -28,6 +28,19 @@ function videoTargetTime(video, globalTime = S.currentTime) {
   );
 }
 
+function supportsNativeHls(video) {
+  return Boolean(video.canPlayType('application/vnd.apple.mpegurl') ||
+    video.canPlayType('application/x-mpegURL'));
+}
+
+function streamSessionId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID().replaceAll('-', '');
+  }
+  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)))
+    .map(value => value.toString(16).padStart(2, '0')).join('');
+}
+
 function seekVideo(video) {
   if (S.currentTime == null || video.readyState < HTMLMediaElement.HAVE_METADATA) return false;
   const target = videoTargetTime(video);
@@ -131,6 +144,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.playbackRate = String(plan.playbackRate);
     cell.dataset.duration = String(streamDuration);
     cell.dataset.profile = S.streamProfile;
+    cell.dataset.streamTransport = '';
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '1';
     cell.dataset.failed = '0';
@@ -201,8 +215,16 @@ function updatePlayerCell(cell, cam, rec, cid) {
         start: streamOffset.toFixed(3),
         speed: String(plan.streamSpeed),
       });
-      v.src = appUrl(`/stream/${rec.id}?${query}`);
+      if (supportsNativeHls(v)) {
+        query.set('recording_id', String(rec.id));
+        cell.dataset.streamTransport = 'hls';
+        v.src = appUrl(`/hls/${streamSessionId()}/index.m3u8?${query}`);
+      } else {
+        cell.dataset.streamTransport = 'mp4';
+        v.src = appUrl(`/stream/${rec.id}?${query}`);
+      }
     } else {
+      cell.dataset.streamTransport = 'native';
       v.src = appUrl(`/video/${rec.id}`);
     }
     v.load();
@@ -215,6 +237,7 @@ function updatePlayerCell(cell, cam, rec, cid) {
     cell.dataset.playbackRate = '';
     cell.dataset.duration = '';
     cell.dataset.profile = '';
+    cell.dataset.streamTransport = '';
     cell.dataset.transitioning = '';
     cell.dataset.buffering = '0';
     cell.dataset.failed = '0';

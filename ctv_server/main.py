@@ -6,7 +6,7 @@ import re
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from ctv_server.db import init_db, get_db
@@ -14,7 +14,13 @@ from ctv_server.api import cameras, recordings, scan, timeline, search, events, 
 from ctv_server.auth import user_from_request
 from ctv_server.config import is_home_assistant, trusted_ingress_proxies
 from ctv_server.mp4 import file_duration_patches, patch_chunk
-from ctv_server.streaming import get_stream_profiles, transcode_stream
+from ctv_server.streaming import (
+    ensure_hls_playlist,
+    get_stream_profiles,
+    hls_segment,
+    shutdown_hls_jobs,
+    transcode_stream,
+)
 
 # ── Logging ──
 logging.basicConfig(
@@ -82,6 +88,7 @@ async def lifespan(app: FastAPI):
     log.info("CTV server ready")
     yield
     _watcher_task.cancel()
+    await shutdown_hls_jobs()
     log.info("CTV server shutting down")
 
 
@@ -144,6 +151,24 @@ def health():
 
 
 # ── Video serving ──
+def _stream_recording(recording_id: int, start: float):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT path, availability, duration FROM recordings WHERE id = ?", (recording_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    if row["availability"] != "available":
+        raise HTTPException(status_code=410, detail="Recording no longer available")
+    if not os.path.isfile(row["path"]):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    duration = float(row["duration"] or 0)
+    if duration > 0 and start >= duration:
+        raise HTTPException(status_code=416, detail="Stream offset is outside the recording")
+    return row
+
+
 @app.get("/video/{recording_id}")
 def serve_video(recording_id: int):
     conn = get_db()
@@ -170,20 +195,7 @@ async def serve_transcoded_video(
     start: float = Query(0, ge=0),
     speed: float = Query(1, ge=1, le=16),
 ):
-    conn = get_db()
-    row = conn.execute(
-        "SELECT path, availability, duration FROM recordings WHERE id = ?", (recording_id,)
-    ).fetchone()
-    conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="Recording not found")
-    if row["availability"] != "available":
-        raise HTTPException(status_code=410, detail="Recording no longer available")
-    if not os.path.isfile(row["path"]):
-        raise HTTPException(status_code=404, detail="File not found on disk")
-    duration = float(row["duration"] or 0)
-    if duration > 0 and start >= duration:
-        raise HTTPException(status_code=416, detail="Stream offset is outside the recording")
+    row = _stream_recording(recording_id, start)
     selected_profile = get_stream_profiles()[profile]
     return StreamingResponse(
         transcode_stream(row["path"], selected_profile, start, speed),
@@ -192,6 +204,48 @@ async def serve_transcoded_video(
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+@app.get("/hls/{job_id}/index.m3u8")
+async def serve_hls_playlist(
+    job_id: str,
+    recording_id: int = Query(..., ge=1),
+    profile: str = Query(..., pattern="^(balanced|fast)$"),
+    start: float = Query(0, ge=0),
+    speed: float = Query(1, ge=1, le=16),
+):
+    row = _stream_recording(recording_id, start)
+    selected_profile = get_stream_profiles()[profile]
+    try:
+        playlist = await ensure_hls_playlist(
+            job_id, row["path"], selected_profile, start, speed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return Response(
+        playlist.read_bytes(),
+        media_type="application/vnd.apple.mpegurl",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.get("/hls/{job_id}/{filename}")
+def serve_hls_segment(job_id: str, filename: str):
+    segment = hls_segment(job_id, filename)
+    if not segment:
+        raise HTTPException(status_code=404, detail="HLS segment not found")
+    return FileResponse(
+        segment,
+        media_type="video/mp2t",
+        headers={"Cache-Control": "private, max-age=300"},
     )
 
 

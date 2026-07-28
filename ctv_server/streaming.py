@@ -1,7 +1,13 @@
 import asyncio
 import os
+import re
+import shutil
+import tempfile
+import time
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import AsyncIterator, Optional
 
 from ctv_server.db import get_db
 
@@ -9,6 +15,25 @@ from ctv_server.db import get_db
 PROFILE_NAMES = ("balanced", "fast")
 _MAX_TRANSCODERS = max(0, int(os.environ.get("CTV_MAX_TRANSCODERS", "0")))
 _transcode_slots = asyncio.Semaphore(_MAX_TRANSCODERS) if _MAX_TRANSCODERS else None
+_HLS_ROOT = Path(os.environ.get(
+    "CTV_HLS_ROOT", os.path.join(tempfile.gettempdir(), "ctv-hls"),
+))
+_HLS_TTL_SECONDS = max(30, int(os.environ.get("CTV_HLS_TTL_SECONDS", "300")))
+_HLS_ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
+_HLS_SEGMENT_PATTERN = re.compile(r"^segment_\d{5}\.ts$")
+
+
+@dataclass
+class HlsJob:
+    signature: tuple
+    directory: Path
+    process: asyncio.subprocess.Process
+    last_access: float
+
+
+_hls_jobs: dict[str, HlsJob] = {}
+_hls_lock = asyncio.Lock()
+_hls_tasks: set[asyncio.Task] = set()
 
 
 def get_stream_profiles() -> dict:
@@ -43,7 +68,7 @@ def get_stream_profiles() -> dict:
     }
 
 
-def build_transcode_command(
+def _encoding_command(
     filepath: str,
     profile: dict,
     start_seconds: float,
@@ -97,6 +122,17 @@ def build_transcode_command(
         "0",
         "-fps_mode",
         "cfr",
+    ]
+
+
+def build_transcode_command(
+    filepath: str,
+    profile: dict,
+    start_seconds: float,
+    speed: float,
+) -> list[str]:
+    return [
+        *_encoding_command(filepath, profile, start_seconds, speed),
         "-movflags",
         "frag_keyframe+empty_moov+default_base_moof",
         "-flush_packets",
@@ -104,6 +140,32 @@ def build_transcode_command(
         "-f",
         "mp4",
         "pipe:1",
+    ]
+
+
+def build_hls_command(
+    filepath: str,
+    profile: dict,
+    start_seconds: float,
+    speed: float,
+    output_dir: str,
+) -> list[str]:
+    directory = Path(output_dir)
+    return [
+        *_encoding_command(filepath, profile, start_seconds, speed),
+        "-hls_time",
+        "1",
+        "-hls_list_size",
+        "0",
+        "-hls_playlist_type",
+        "event",
+        "-hls_flags",
+        "independent_segments+temp_file",
+        "-hls_segment_filename",
+        str(directory / "segment_%05d.ts"),
+        "-f",
+        "hls",
+        str(directory / "index.m3u8"),
     ]
 
 
@@ -125,6 +187,112 @@ async def _transcode_slot():
         return
     async with _transcode_slots:
         yield
+
+
+async def _expire_hls_job(job_id: str):
+    job = _hls_jobs.get(job_id)
+    if not job:
+        return
+    await job.process.wait()
+    if job.process.returncode:
+        async with _hls_lock:
+            if _hls_jobs.get(job_id) is job:
+                _hls_jobs.pop(job_id, None)
+        shutil.rmtree(job.directory, ignore_errors=True)
+        return
+    while True:
+        delay = _HLS_TTL_SECONDS - (time.monotonic() - job.last_access)
+        if delay > 0:
+            await asyncio.sleep(delay)
+        async with _hls_lock:
+            current = _hls_jobs.get(job_id)
+            if current is not job:
+                return
+            if time.monotonic() - job.last_access < _HLS_TTL_SECONDS:
+                continue
+            _hls_jobs.pop(job_id, None)
+        shutil.rmtree(job.directory, ignore_errors=True)
+        return
+
+
+async def ensure_hls_playlist(
+    job_id: str,
+    filepath: str,
+    profile: dict,
+    start_seconds: float,
+    speed: float,
+) -> Path:
+    if not _HLS_ID_PATTERN.fullmatch(job_id):
+        raise ValueError("Invalid HLS session")
+    signature = (
+        filepath,
+        profile["name"],
+        profile["scale_percent"],
+        profile["fps"],
+        profile["bitrate_kbps"],
+        round(start_seconds, 3),
+        speed,
+    )
+    async with _hls_lock:
+        job = _hls_jobs.get(job_id)
+        if job and job.signature != signature:
+            raise ValueError("HLS session parameters changed")
+        if not job:
+            directory = _HLS_ROOT / job_id
+            directory.mkdir(parents=True, exist_ok=False)
+            process = await asyncio.create_subprocess_exec(
+                *build_hls_command(
+                    filepath, profile, start_seconds, speed, str(directory),
+                ),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            job = HlsJob(signature, directory, process, time.monotonic())
+            _hls_jobs[job_id] = job
+            task = asyncio.create_task(_expire_hls_job(job_id))
+            _hls_tasks.add(task)
+            task.add_done_callback(_hls_tasks.discard)
+        else:
+            job.last_access = time.monotonic()
+
+    playlist = job.directory / "index.m3u8"
+    for _ in range(600):
+        if playlist.is_file() and playlist.stat().st_size:
+            return playlist
+        if job.process.returncode is not None:
+            raise RuntimeError("Unable to create HLS stream")
+        await asyncio.sleep(0.05)
+    await _stop_process(job.process)
+    raise TimeoutError("Timed out while creating HLS stream")
+
+
+def hls_segment(job_id: str, filename: str) -> Optional[Path]:
+    if not _HLS_ID_PATTERN.fullmatch(job_id):
+        return None
+    if not _HLS_SEGMENT_PATTERN.fullmatch(filename):
+        return None
+    job = _hls_jobs.get(job_id)
+    if not job:
+        return None
+    job.last_access = time.monotonic()
+    path = job.directory / filename
+    return path if path.is_file() else None
+
+
+async def shutdown_hls_jobs():
+    async with _hls_lock:
+        jobs = list(_hls_jobs.values())
+        _hls_jobs.clear()
+    tasks = list(_hls_tasks)
+    _hls_tasks.clear()
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.gather(
+        *(_stop_process(job.process) for job in jobs),
+        return_exceptions=True,
+    )
+    shutil.rmtree(_HLS_ROOT, ignore_errors=True)
 
 
 async def transcode_stream(

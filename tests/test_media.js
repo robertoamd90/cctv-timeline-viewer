@@ -58,6 +58,8 @@ assert.match(playerSource, /preload="metadata"/);
 assert.match(playerSource, /v\.preload = S\.preloadMode/);
 assert.match(playerSource, /readyState < HTMLMediaElement\.HAVE_CURRENT_DATA/);
 assert(playerSource.includes('/stream/${rec.id}'));
+assert(playerSource.includes("canPlayType('application/vnd.apple.mpegurl')"));
+assert(playerSource.includes('/hls/${streamSessionId()}/index.m3u8'));
 assert.match(playerSource, /ctv-preload-mode/);
 
 console.log('Media state tests passed');

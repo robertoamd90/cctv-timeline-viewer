@@ -38,7 +38,8 @@ Administrators configure the scale percentage, frame rate and maximum bitrate
 of Balanced and Fast in the Cameras view. Scaling keeps the original aspect
 ratio. High playback speeds are applied during transcoding so client bandwidth
 stays close to the selected profile bitrate. Transcoding uses Home Assistant
-host CPU; use Native when the client connection is fast enough.
+host CPU; use Native when the client connection is fast enough. CCTV Viewer
+automatically uses native HLS delivery on iPhone, iPad and other WebKit clients.
 
 ## Permissions
 

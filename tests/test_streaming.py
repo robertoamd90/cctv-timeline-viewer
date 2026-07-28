@@ -1,4 +1,5 @@
 import json
+import asyncio
 import os
 import subprocess
 import tempfile
@@ -8,7 +9,13 @@ from ctv_server import db
 from ctv_server.api.system import stream_profiles, update_stream_profiles
 from ctv_server.auth import CurrentUser
 from ctv_server.models import StreamProfileConfig, StreamProfilesUpdate
-from ctv_server.streaming import build_transcode_command
+from ctv_server.streaming import (
+    build_hls_command,
+    build_transcode_command,
+    ensure_hls_playlist,
+    hls_segment,
+    shutdown_hls_jobs,
+)
 
 
 class StreamProfileTests(unittest.TestCase):
@@ -95,6 +102,74 @@ class TranscodeCommandTests(unittest.TestCase):
             self.assertEqual(metadata["streams"][0]["height"], 120)
             self.assertLess(float(metadata["format"]["duration"]), 1.2)
             self.assertIn(b"moof", result.stdout)
+
+    def test_hls_output_is_segmented_for_native_mobile_playback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "source.mp4")
+            output_dir = os.path.join(tmp, "hls")
+            os.mkdir(output_dir)
+            subprocess.run(
+                [
+                    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "testsrc=size=320x240:rate=20",
+                    "-t", "2", "-c:v", "mpeg4", source,
+                ],
+                check=True,
+            )
+            command = build_hls_command(source, self.profile, 0, 2, output_dir)
+            subprocess.run(command, check=True, capture_output=True)
+            playlist_path = os.path.join(output_dir, "index.m3u8")
+            with open(playlist_path, encoding="utf-8") as handle:
+                playlist = handle.read()
+            self.assertIn("#EXTM3U", playlist)
+            self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
+            self.assertIn("#EXT-X-ENDLIST", playlist)
+            self.assertIn("segment_00000.ts", playlist)
+            self.assertNotIn(output_dir, playlist)
+            segment = os.path.join(output_dir, "segment_00000.ts")
+            probe = subprocess.run(
+                [
+                    "ffprobe", "-v", "error", "-show_entries",
+                    "stream=width,height", "-of", "json", segment,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            metadata = json.loads(probe.stdout)
+            self.assertEqual(metadata["streams"][0]["width"], 160)
+            self.assertEqual(metadata["streams"][0]["height"], 120)
+
+    def test_hls_session_returns_first_segment_before_full_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "source.mp4")
+            subprocess.run(
+                [
+                    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "testsrc=size=320x240:rate=20",
+                    "-t", "3", "-c:v", "mpeg4", source,
+                ],
+                check=True,
+            )
+
+            async def scenario():
+                playlist_path = await ensure_hls_playlist(
+                    "0123456789abcdef0123456789abcdef",
+                    source,
+                    self.profile,
+                    0,
+                    1,
+                )
+                playlist = playlist_path.read_text(encoding="utf-8")
+                segment_name = next(
+                    line for line in playlist.splitlines() if line.endswith(".ts")
+                )
+                self.assertTrue(hls_segment(
+                    "0123456789abcdef0123456789abcdef", segment_name,
+                ).is_file())
+                await shutdown_hls_jobs()
+
+            asyncio.run(scenario())
 
 
 if __name__ == "__main__":
