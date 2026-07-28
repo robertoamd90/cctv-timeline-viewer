@@ -117,7 +117,9 @@ browser to consume sixteen times the configured bitrate.
 
 Transcoding consumes CPU on the machine running CCTV Viewer. Native remains the
 best choice on a fast local network; Balanced and Fast target VPN, mobile and
-other bandwidth-constrained connections.
+other bandwidth-constrained connections. Compressed profiles use native HLS
+delivery on iPhone, iPad and other WebKit clients, while supported desktop
+browsers continue to receive fragmented MP4.
 
 Supported recording extensions are MP4, AVI, MKV, MOV, TS, H264, H265, and DAV.
 Image files, including JPEG snapshots, are ignored. Browser compatibility still
