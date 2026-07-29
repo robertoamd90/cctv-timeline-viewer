@@ -20,7 +20,7 @@ _HLS_ROOT = Path(os.environ.get(
     "CTV_HLS_ROOT", os.path.join(tempfile.gettempdir(), "ctv-hls"),
 ))
 _HLS_TTL_SECONDS = max(30, int(os.environ.get("CTV_HLS_TTL_SECONDS", "300")))
-_HLS_PREPARE_TIMEOUT = max(10, int(os.environ.get("CTV_HLS_PREPARE_TIMEOUT", "120")))
+_HLS_START_TIMEOUT = max(10, int(os.environ.get("CTV_HLS_START_TIMEOUT", "30")))
 _HLS_ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
 _HLS_SEGMENT_PATTERN = re.compile(r"^segment_\d{5}\.ts$")
 
@@ -29,16 +29,27 @@ _HLS_SEGMENT_PATTERN = re.compile(r"^segment_\d{5}\.ts$")
 class HlsJob:
     signature: tuple
     directory: Path
+    error_path: Path
     process: asyncio.subprocess.Process
     last_access: float
     started_at: float
-    ready_logged: bool = False
+    started_logged: bool = False
 
 
 _hls_jobs: dict[str, HlsJob] = {}
 _hls_lock = asyncio.Lock()
 _hls_tasks: set[asyncio.Task] = set()
 log = logging.getLogger("ctv.streaming")
+
+
+def _hls_failure_detail(job: HlsJob) -> str:
+    try:
+        detail = job.error_path.read_text(
+            encoding="utf-8", errors="replace",
+        ).strip()
+    except OSError:
+        detail = ""
+    return detail[-1000:] or f"ffmpeg exited {job.process.returncode}"
 
 
 def get_stream_profiles() -> dict:
@@ -163,7 +174,7 @@ def build_hls_command(
         "-hls_list_size",
         "0",
         "-hls_playlist_type",
-        "vod",
+        "event",
         "-hls_flags",
         "independent_segments+temp_file",
         "-hls_segment_filename",
@@ -199,6 +210,22 @@ async def _expire_hls_job(job_id: str):
     if not job:
         return
     await job.process.wait()
+    if job.process.returncode:
+        log.warning(
+            "HLS session %s failed: %s",
+            job_id[:8], _hls_failure_detail(job),
+        )
+        async with _hls_lock:
+            if _hls_jobs.get(job_id) is job:
+                _hls_jobs.pop(job_id, None)
+        shutil.rmtree(job.directory, ignore_errors=True)
+        return
+    log.info(
+        "HLS session %s completed in %.2fs with %d segments",
+        job_id[:8],
+        time.monotonic() - job.started_at,
+        len(list(job.directory.glob("segment_*.ts"))),
+    )
     while True:
         delay = _HLS_TTL_SECONDS - (time.monotonic() - job.last_access)
         if delay > 0:
@@ -240,19 +267,25 @@ async def ensure_hls_playlist(
             directory = _HLS_ROOT / job_id
             directory.mkdir(parents=True, exist_ok=False)
             started_at = time.monotonic()
-            process = await asyncio.create_subprocess_exec(
-                *build_hls_command(
-                    filepath, profile, start_seconds, speed, str(directory),
-                ),
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            error_path = directory / "ffmpeg.log"
+            try:
+                with error_path.open("wb") as error_output:
+                    process = await asyncio.create_subprocess_exec(
+                        *build_hls_command(
+                            filepath, profile, start_seconds, speed, str(directory),
+                        ),
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=error_output,
+                    )
+            except Exception:
+                shutil.rmtree(directory, ignore_errors=True)
+                raise
             job = HlsJob(
-                signature, directory, process, started_at, started_at,
+                signature, directory, error_path, process, started_at, started_at,
             )
             _hls_jobs[job_id] = job
             log.info(
-                "Preparing HLS VOD session %s profile=%s speed=%gx offset=%.3fs",
+                "Starting HLS session %s profile=%s speed=%gx offset=%.3fs",
                 job_id[:8], profile["name"], speed, start_seconds,
             )
             task = asyncio.create_task(_expire_hls_job(job_id))
@@ -262,40 +295,53 @@ async def ensure_hls_playlist(
             job.last_access = time.monotonic()
 
     playlist = job.directory / "index.m3u8"
-    try:
-        await asyncio.wait_for(
-            asyncio.shield(job.process.wait()),
-            timeout=_HLS_PREPARE_TIMEOUT,
+    deadline = time.monotonic() + _HLS_START_TIMEOUT
+    while time.monotonic() < deadline:
+        if playlist.is_file():
+            try:
+                contents = playlist.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                contents = ""
+            segment_names = [
+                line.strip()
+                for line in contents.splitlines()
+                if _HLS_SEGMENT_PATTERN.fullmatch(line.strip())
+            ]
+            if segment_names and (job.directory / segment_names[0]).is_file():
+                job.last_access = time.monotonic()
+                if not job.started_logged:
+                    job.started_logged = True
+                    log.info(
+                        "HLS session %s playable in %.2fs",
+                        job_id[:8],
+                        time.monotonic() - job.started_at,
+                    )
+                return playlist
+        if job.process.returncode is not None:
+            log.warning(
+                "HLS session %s failed: %s",
+                job_id[:8], _hls_failure_detail(job),
+            )
+            raise RuntimeError("Unable to create HLS stream")
+        await asyncio.sleep(0.05)
+    await _stop_process(job.process)
+    log.warning(
+        "HLS session %s did not produce a playable segment within %ss",
+        job_id[:8], _HLS_START_TIMEOUT,
+    )
+    raise TimeoutError("Timed out while starting HLS stream")
+
+
+def hls_playlist_contents(playlist: Path) -> bytes:
+    contents = playlist.read_text(encoding="utf-8")
+    start_tag = "#EXT-X-START:TIME-OFFSET=0,PRECISE=YES"
+    if start_tag not in contents:
+        contents = contents.replace(
+            "#EXTM3U\n",
+            f"#EXTM3U\n{start_tag}\n",
+            1,
         )
-    except asyncio.TimeoutError as exc:
-        await _stop_process(job.process)
-        log.warning(
-            "HLS VOD session %s timed out after %ss",
-            job_id[:8], _HLS_PREPARE_TIMEOUT,
-        )
-        raise TimeoutError("Timed out while creating HLS stream") from exc
-    if job.process.returncode:
-        stderr = (await job.process.stderr.read()).decode("utf-8", errors="replace").strip()
-        log.warning(
-            "HLS VOD session %s failed: %s",
-            job_id[:8], stderr[-1000:] or f"ffmpeg exited {job.process.returncode}",
-        )
-        raise RuntimeError("Unable to create HLS stream")
-    if not playlist.is_file() or "#EXT-X-ENDLIST" not in playlist.read_text(
-        encoding="utf-8",
-    ):
-        log.warning("HLS VOD session %s produced an incomplete playlist", job_id[:8])
-        raise RuntimeError("Unable to create complete HLS stream")
-    job.last_access = time.monotonic()
-    if not job.ready_logged:
-        job.ready_logged = True
-        log.info(
-            "HLS VOD session %s ready in %.2fs with %d segments",
-            job_id[:8],
-            time.monotonic() - job.started_at,
-            len(list(job.directory.glob("segment_*.ts"))),
-        )
-    return playlist
+    return contents.encode("utf-8")
 
 
 def hls_segment(job_id: str, filename: str) -> Optional[Path]:

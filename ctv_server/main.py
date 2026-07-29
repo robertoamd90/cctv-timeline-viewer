@@ -16,6 +16,7 @@ from ctv_server.config import is_home_assistant, trusted_ingress_proxies
 from ctv_server.mp4 import file_duration_patches, patch_chunk
 from ctv_server.streaming import (
     ensure_hls_playlist,
+    hls_playlist_contents,
     get_stream_profiles,
     hls_segment,
     shutdown_hls_jobs,
@@ -228,7 +229,7 @@ async def serve_hls_playlist(
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return Response(
-        playlist.read_bytes(),
+        hls_playlist_contents(playlist),
         media_type="application/vnd.apple.mpegurl",
         headers={
             "Cache-Control": "no-store",

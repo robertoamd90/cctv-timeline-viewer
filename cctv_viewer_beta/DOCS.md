@@ -40,10 +40,8 @@ ratio. High playback speeds are applied during transcoding so client bandwidth
 stays close to the selected profile bitrate. Transcoding uses Home Assistant
 host CPU; use Native when the client connection is fast enough. CCTV Viewer
 automatically uses native HLS delivery on iPhone, iPad and other WebKit clients.
-On these clients, a compressed clip is prepared as a complete on-demand stream
-before playback begins. The loading indicator may therefore remain visible
-briefly, especially at 1x speed, but the clip starts with a stable duration and
-timeline.
+On these clients, playback starts after the first compressed segment is ready
+and transcoding continues incrementally while the recording plays.
 
 ## Permissions
 
