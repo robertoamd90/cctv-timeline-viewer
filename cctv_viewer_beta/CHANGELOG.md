@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22
+
+- Start mobile HLS media timestamps at zero instead of the MPEG-TS default delay.
+- Prevent the synchronization coordinator from repeatedly seeking compressed
+  mobile streams before their first valid frame.
+
 ## 0.1.21
 
 - Start compressed mobile playback as soon as the first HLS segment is ready.
