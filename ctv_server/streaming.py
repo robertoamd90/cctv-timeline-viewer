@@ -179,6 +179,8 @@ def build_hls_command(
         "independent_segments+temp_file",
         "-hls_segment_filename",
         str(directory / "segment_%05d.ts"),
+        "-muxdelay",
+        "0",
         "-f",
         "hls",
         str(directory / "index.m3u8"),

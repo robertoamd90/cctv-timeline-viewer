@@ -131,7 +131,7 @@ class TranscodeCommandTests(unittest.TestCase):
             probe = subprocess.run(
                 [
                     "ffprobe", "-v", "error", "-show_entries",
-                    "stream=width,height", "-of", "json", segment,
+                    "stream=width,height:packet=pts_time", "-of", "json", segment,
                 ],
                 check=True,
                 capture_output=True,
@@ -140,6 +140,9 @@ class TranscodeCommandTests(unittest.TestCase):
             metadata = json.loads(probe.stdout)
             self.assertEqual(metadata["streams"][0]["width"], 160)
             self.assertEqual(metadata["streams"][0]["height"], 120)
+            self.assertAlmostEqual(
+                float(metadata["packets"][0]["pts_time"]), 0, places=3,
+            )
 
     def test_hls_session_returns_a_playable_event_playlist(self):
         with tempfile.TemporaryDirectory() as tmp:
