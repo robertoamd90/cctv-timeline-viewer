@@ -21,6 +21,12 @@
     return Math.min(desired, Math.max(0, expectedDuration - currentTime - 0.5));
   }
 
+  function timelinePlaybackSpeed(playbackRate, streamSpeed) {
+    const mediaRate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
+    const encodedRate = Number.isFinite(streamSpeed) && streamSpeed > 0 ? streamSpeed : 1;
+    return mediaRate * encodedRate;
+  }
+
   function playbackPlan(profile, speed) {
     const selectedSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
     const transcoded = profile === 'balanced' || profile === 'fast';
@@ -56,6 +62,7 @@
     safeSeekTarget,
     playbackCompleted,
     requiredPlaybackBuffer,
+    timelinePlaybackSpeed,
     playbackPlan,
     mediaTimeForTimeline,
     timelineTimeForMedia,
