@@ -17,6 +17,13 @@ function videoPlaybackRate(video) {
   return Number.isFinite(value) && value > 0 ? value : S.speed;
 }
 
+function videoTimelineSpeed(video) {
+  return CtvMedia.timelinePlaybackSpeed(
+    videoPlaybackRate(video),
+    parseFloat(video.parentElement.dataset.streamSpeed),
+  );
+}
+
 function videoTargetTime(video, globalTime = S.currentTime) {
   const cell = video.parentElement;
   return CtvMedia.mediaTimeForTimeline(
@@ -433,7 +440,7 @@ function bufferedAheadAt(video, current) {
 
 function requiredBuffer(video, currentTime = video.currentTime) {
   const expectedDuration = parseFloat(video.parentElement.dataset.duration);
-  return CtvMedia.requiredPlaybackBuffer(videoPlaybackRate(video), currentTime, expectedDuration);
+  return CtvMedia.requiredPlaybackBuffer(videoTimelineSpeed(video), currentTime, expectedDuration);
 }
 
 function videoReachedEnd(video) {

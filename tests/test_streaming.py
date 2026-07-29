@@ -72,6 +72,12 @@ class TranscodeCommandTests(unittest.TestCase):
         self.assertIn("scale=trunc(iw*0.5/2)*2:trunc(ih*0.5/2)*2", video_filter)
         self.assertEqual(command[command.index("-b:v") + 1], "500k")
         self.assertEqual(command[command.index("-ss") + 1], "3.250")
+        self.assertEqual(command[command.index("-skip_frame") + 1], "nokey")
+        self.assertLess(command.index("-skip_frame"), command.index("-i"))
+
+    def test_moderate_speed_decodes_all_source_frames(self):
+        command = build_transcode_command("/video/input.mp4", self.profile, 0, 4)
+        self.assertNotIn("-skip_frame", command)
 
     def test_ffmpeg_output_has_scaled_dimensions_and_shorter_duration(self):
         with tempfile.TemporaryDirectory() as tmp:

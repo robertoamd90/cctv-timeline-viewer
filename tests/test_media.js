@@ -4,6 +4,7 @@ const {
   safeSeekTarget,
   playbackCompleted,
   requiredPlaybackBuffer,
+  timelinePlaybackSpeed,
   playbackPlan,
   mediaTimeForTimeline,
   timelineTimeForMedia,
@@ -41,6 +42,9 @@ assert.equal(requiredPlaybackBuffer(16, 10, 30), 4);
 assert.equal(requiredPlaybackBuffer(16, 26, 30), 3.5);
 assert.equal(requiredPlaybackBuffer(16, 29.7, 30), 0);
 assert.equal(requiredPlaybackBuffer(1, 10, NaN), 0.75);
+assert.equal(timelinePlaybackSpeed(1, 16), 16);
+assert.equal(timelinePlaybackSpeed(8, 1), 8);
+assert.equal(timelinePlaybackSpeed(NaN, NaN), 1);
 
 assert.deepEqual(playbackPlan('native', 16), {
   transcoded: false, streamSpeed: 1, playbackRate: 16,
@@ -60,6 +64,7 @@ assert.match(playerSource, /readyState < HTMLMediaElement\.HAVE_CURRENT_DATA/);
 assert(playerSource.includes('/stream/${rec.id}'));
 assert(playerSource.includes("canPlayType('application/vnd.apple.mpegurl')"));
 assert(playerSource.includes('/hls/${streamSessionId()}/index.m3u8'));
+assert.match(playerSource, /requiredPlaybackBuffer\(videoTimelineSpeed\(video\)/);
 assert.match(playerSource, /ctv-preload-mode/);
 
 console.log('Media state tests passed');

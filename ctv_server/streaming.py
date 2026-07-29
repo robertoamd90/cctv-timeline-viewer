@@ -99,6 +99,7 @@ def _encoding_command(
         f"fps={fps},"
         f"scale=trunc(iw*{scale:g}/2)*2:trunc(ih*{scale:g}/2)*2:flags=fast_bilinear"
     )
+    decode_options = ["-skip_frame", "nokey"] if speed >= 8 else []
     return [
         "ffmpeg",
         "-nostdin",
@@ -107,6 +108,7 @@ def _encoding_command(
         "error",
         "-ss",
         f"{start_seconds:.3f}",
+        *decode_options,
         "-i",
         filepath,
         "-map",

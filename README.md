@@ -121,6 +121,8 @@ other bandwidth-constrained connections. Compressed profiles use native HLS
 delivery on iPhone, iPad and other WebKit clients, while supported desktop
 browsers continue to receive fragmented MP4. Mobile HLS playback starts after
 the first segment and continues while the remaining recording is transcoded.
+At 8x and 16x, compressed profiles sample source keyframes to reduce decoding
+load and keep the transcoder ahead of playback.
 
 Supported recording extensions are MP4, AVI, MKV, MOV, TS, H264, H265, and DAV.
 Image files, including JPEG snapshots, are ignored. Browser compatibility still

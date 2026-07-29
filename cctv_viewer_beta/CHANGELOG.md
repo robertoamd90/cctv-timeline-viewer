@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.23
+
+- Prebuffer compressed streams according to their effective timeline speed.
+- Decode keyframes only at 8x and 16x to reduce transcoder CPU pressure.
+- Keep full-frame decoding unchanged from 1x through 4x.
+
 ## 0.1.22
 
 - Start mobile HLS media timestamps at zero instead of the MPEG-TS default delay.
