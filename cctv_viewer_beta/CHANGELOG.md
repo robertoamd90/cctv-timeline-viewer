@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.21
+
+- Start compressed mobile playback as soon as the first HLS segment is ready.
+- Keep transcoding incrementally while the browser plays the recording.
+- Anchor WebKit playback to the beginning instead of the moving live edge.
+- Log HLS startup time, completion, timeouts and FFmpeg failures.
+
 ## 0.1.20
 
 - Use native HLS delivery for compressed profiles on iOS and other WebKit clients.
