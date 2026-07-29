@@ -42,6 +42,8 @@ host CPU; use Native when the client connection is fast enough. CCTV Viewer
 automatically uses native HLS delivery on iPhone, iPad and other WebKit clients.
 On these clients, playback starts after the first compressed segment is ready
 and transcoding continues incrementally while the recording plays.
+At 8x and 16x, compressed profiles sample source keyframes to keep transcoding
+ahead of playback on lower-power Home Assistant hardware.
 
 ## Permissions
 
