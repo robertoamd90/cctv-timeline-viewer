@@ -2,9 +2,10 @@
 
 ## 0.1.21
 
-- Prepare compressed mobile streams as complete HLS VOD playlists before playback.
-- Prevent iOS and WebKit from treating recording clips as incomplete live streams.
-- Log HLS preparation time, segment count, timeouts and FFmpeg failures.
+- Start compressed mobile playback as soon as the first HLS segment is ready.
+- Keep transcoding incrementally while the browser plays the recording.
+- Anchor WebKit playback to the beginning instead of the moving live edge.
+- Log HLS startup time, completion, timeouts and FFmpeg failures.
 
 ## 0.1.20
 

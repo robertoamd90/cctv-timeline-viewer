@@ -13,6 +13,7 @@ from ctv_server.streaming import (
     build_hls_command,
     build_transcode_command,
     ensure_hls_playlist,
+    hls_playlist_contents,
     hls_segment,
     shutdown_hls_jobs,
 )
@@ -122,7 +123,7 @@ class TranscodeCommandTests(unittest.TestCase):
             with open(playlist_path, encoding="utf-8") as handle:
                 playlist = handle.read()
             self.assertIn("#EXTM3U", playlist)
-            self.assertIn("#EXT-X-PLAYLIST-TYPE:VOD", playlist)
+            self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
             self.assertIn("#EXT-X-ENDLIST", playlist)
             self.assertIn("segment_00000.ts", playlist)
             self.assertNotIn(output_dir, playlist)
@@ -140,7 +141,7 @@ class TranscodeCommandTests(unittest.TestCase):
             self.assertEqual(metadata["streams"][0]["width"], 160)
             self.assertEqual(metadata["streams"][0]["height"], 120)
 
-    def test_hls_session_returns_complete_vod_before_playback(self):
+    def test_hls_session_returns_a_playable_event_playlist(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = os.path.join(tmp, "source.mp4")
             subprocess.run(
@@ -161,14 +162,18 @@ class TranscodeCommandTests(unittest.TestCase):
                     1,
                 )
                 playlist = playlist_path.read_text(encoding="utf-8")
-                self.assertIn("#EXT-X-PLAYLIST-TYPE:VOD", playlist)
-                self.assertIn("#EXT-X-ENDLIST", playlist)
+                self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
                 segment_name = next(
                     line for line in playlist.splitlines() if line.endswith(".ts")
                 )
                 self.assertTrue(hls_segment(
                     "0123456789abcdef0123456789abcdef", segment_name,
                 ).is_file())
+                served_playlist = hls_playlist_contents(playlist_path).decode("utf-8")
+                self.assertIn(
+                    "#EXT-X-START:TIME-OFFSET=0,PRECISE=YES",
+                    served_playlist,
+                )
                 await shutdown_hls_jobs()
 
             asyncio.run(scenario())
