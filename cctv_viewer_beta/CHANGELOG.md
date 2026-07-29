@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.21
+
+- Prepare compressed mobile streams as complete HLS VOD playlists before playback.
+- Prevent iOS and WebKit from treating recording clips as incomplete live streams.
+- Log HLS preparation time, segment count, timeouts and FFmpeg failures.
+
 ## 0.1.20
 
 - Use native HLS delivery for compressed profiles on iOS and other WebKit clients.

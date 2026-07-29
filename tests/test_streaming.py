@@ -122,7 +122,7 @@ class TranscodeCommandTests(unittest.TestCase):
             with open(playlist_path, encoding="utf-8") as handle:
                 playlist = handle.read()
             self.assertIn("#EXTM3U", playlist)
-            self.assertIn("#EXT-X-PLAYLIST-TYPE:EVENT", playlist)
+            self.assertIn("#EXT-X-PLAYLIST-TYPE:VOD", playlist)
             self.assertIn("#EXT-X-ENDLIST", playlist)
             self.assertIn("segment_00000.ts", playlist)
             self.assertNotIn(output_dir, playlist)
@@ -140,7 +140,7 @@ class TranscodeCommandTests(unittest.TestCase):
             self.assertEqual(metadata["streams"][0]["width"], 160)
             self.assertEqual(metadata["streams"][0]["height"], 120)
 
-    def test_hls_session_returns_first_segment_before_full_cleanup(self):
+    def test_hls_session_returns_complete_vod_before_playback(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = os.path.join(tmp, "source.mp4")
             subprocess.run(
@@ -161,6 +161,8 @@ class TranscodeCommandTests(unittest.TestCase):
                     1,
                 )
                 playlist = playlist_path.read_text(encoding="utf-8")
+                self.assertIn("#EXT-X-PLAYLIST-TYPE:VOD", playlist)
+                self.assertIn("#EXT-X-ENDLIST", playlist)
                 segment_name = next(
                     line for line in playlist.splitlines() if line.endswith(".ts")
                 )
