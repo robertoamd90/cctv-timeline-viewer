@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "stable": {
+    "version": "0.1.24",
+    "status": "published",
+    "source_repository": "robertoamd90/cctv-timeline-viewer-core",
+    "source_ref": "v0.1.24",
+    "source_sha": "4065826936ccaef7060d670b80272f80c254db0e",
+    "image": "ghcr.io/robertoamd90/cctv-viewer:0.1.24",
+    "image_digest": "legacy"
+  },
+  "beta": {
+    "version": "0.1.24",
+    "status": "published",
+    "source_repository": "robertoamd90/cctv-timeline-viewer-core",
+    "source_ref": "v0.1.24",
+    "source_sha": "4065826936ccaef7060d670b80272f80c254db0e",
+    "image": "ghcr.io/robertoamd90/cctv-viewer-beta:0.1.24",
+    "image_digest": "legacy"
+  }
+}
