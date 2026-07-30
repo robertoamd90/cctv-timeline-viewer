@@ -168,6 +168,11 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.loop = false;
     v.onended = () => {
       if (v.dataset.metadataReady !== '1' || v.dataset.hasPlayed !== '1') return;
+      if (_wasBuffering || v.dataset.warming === '1') {
+        v.pause();
+        seekVideo(v);
+        return;
+      }
       if (videoReachedEnd(v)) {
         onVideoEnded(v, recId);
         return;
@@ -188,7 +193,8 @@ function updatePlayerCell(cell, cam, rec, cid) {
     v.onplaying = () => {
       v.dataset.hasPlayed = '1';
       if (_wasBuffering) {
-        if (v.dataset.warming !== '1') v.pause();
+        showFreezeFrame(v);
+        v.pause();
         return;
       }
       setPlayerStatus(cell, '');
@@ -451,6 +457,8 @@ function videoReachedEnd(video) {
     expectedDuration,
     metadataReady: video.dataset.metadataReady === '1',
     hasPlayed: video.dataset.hasPlayed === '1',
+    buffering: _wasBuffering,
+    warming: video.dataset.warming === '1',
   });
 }
 
@@ -498,6 +506,7 @@ function enterBufferingBarrier(source, message) {
     if (!videoHasPlaybackBuffer(video)) {
       video.dataset.warming = '1';
       showFreezeFrame(video);
+      video.preload = 'auto';
       video.playbackRate = videoPlaybackRate(video);
       video.play().catch(() => {});
     } else {
@@ -537,6 +546,7 @@ function stopPlayback() {
     v.dataset.warming = '0';
     clearFreezeFrame(v);
     v.pause();
+    v.preload = S.preloadMode;
   });
   updatePlayButton();
 }
@@ -610,7 +620,7 @@ function startClock() {
 function clockTick() {
   if (!S.playing || S.activeTab !== 'timeline') { _tickId = null; return; }
   const videos = activeVideos();
-  const completed = videos.find(videoReachedEnd);
+  const completed = _wasBuffering ? null : videos.find(videoReachedEnd);
   if (completed) {
     onVideoEnded(completed, completed.dataset.recording);
     _tickId = requestAnimationFrame(clockTick);

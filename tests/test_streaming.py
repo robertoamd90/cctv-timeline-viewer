@@ -15,6 +15,7 @@ from ctv_server.streaming import (
     ensure_hls_playlist,
     hls_playlist_contents,
     hls_segment,
+    initial_hls_segment_count,
     shutdown_hls_jobs,
 )
 
@@ -63,6 +64,12 @@ class TranscodeCommandTests(unittest.TestCase):
         "fps": 10,
         "bitrate_kbps": 500,
     }
+
+    def test_hls_initial_buffer_scales_with_playback_speed(self):
+        self.assertEqual(initial_hls_segment_count(1), 1)
+        self.assertEqual(initial_hls_segment_count(4), 2)
+        self.assertEqual(initial_hls_segment_count(8), 4)
+        self.assertEqual(initial_hls_segment_count(16), 4)
 
     def test_command_preserves_aspect_ratio_and_bakes_speed(self):
         command = build_transcode_command("/video/input.mp4", self.profile, 3.25, 16)
