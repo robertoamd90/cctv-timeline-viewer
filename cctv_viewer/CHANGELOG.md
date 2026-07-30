@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.1.24
+
+### Adaptive streaming
+
+- Add Native, Balanced and Fast quality modes for local, VPN and mobile
+  connections.
+- Let administrators configure scale percentage, frame rate and maximum bitrate
+  for Balanced and Fast while preserving each recording's aspect ratio.
+- Apply accelerated playback during transcoding so client bandwidth remains
+  bounded by the selected profile, including at 8x and 16x.
+- Add per-browser Metadata and Automatic preload preferences to balance startup
+  latency against network and CPU usage.
+
+### Mobile playback
+
+- Deliver compressed streams as native HLS on iPhone, iPad and other WebKit
+  clients while retaining fragmented MP4 on compatible browsers.
+- Start playback as soon as the initial HLS buffer is ready and continue
+  transcoding incrementally instead of waiting for the complete recording.
+- Align HLS timestamps to zero and anchor playback to the recording start,
+  preventing repeated seeks and moving-live-edge behavior on mobile browsers.
+- Clean up generated HLS segments automatically after playback.
+
+### Synchronization and reliability
+
+- Start active cameras behind a shared seek and buffering barrier and derive the
+  playback clock from their median timestamp.
+- Pause and realign the complete camera group when one stream falls behind,
+  rather than allowing cameras to drift apart.
+- Keep the last decoded frame visible while buffering and prevent completed
+  warm-up clips from skipping through later recordings.
+- Recenter the timeline immediately when playback crosses a large recording
+  gap and clear loading feedback as soon as a selected frame is ready.
+
+### High-speed performance
+
+- Decode keyframes only for compressed 8x and 16x playback, reducing transcoder
+  CPU pressure while keeping full-frame decoding from 1x through 4x.
+- Scale the required startup buffer with effective timeline speed and prepare
+  four HLS segments before starting compressed 8x and 16x playback.
+- Hold every active camera at the synchronization barrier without consuming its
+  prepared buffer, improving recovery when several cameras become active at
+  once.
+- Add HLS startup, completion, timeout and FFmpeg failure diagnostics.
+
 ## 0.1.12
 
 - Improve the Auto Hotspot control layout and labeling on mobile screens.
