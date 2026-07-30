@@ -2,6 +2,7 @@
    CTV — App Core: tabs, cameras, state, search
    ═══════════════════════════════════════════ */
 
+const SAVED_STREAM_PROFILE = localStorage.getItem('ctv-stream-profile');
 const S = {
   session: { deployment: 'standalone', authenticated: true, is_admin: true, source_roots: [] },
   cameras: [],          // ordinamento corrente (persistito in localStorage)
@@ -13,6 +14,11 @@ const S = {
   gridLayout: 2,
   playing: false,
   speed: 1,
+  streamProfile: ['native', 'balanced', 'fast'].includes(SAVED_STREAM_PROFILE)
+    ? SAVED_STREAM_PROFILE : 'native',
+  preloadMode: localStorage.getItem('ctv-preload-mode') === 'auto' ? 'auto' : 'metadata',
+  streamProfiles: null,
+  streamProfileRevision: 0,
   loop: false,
   colorMap: {},
   rWidth: 0,
@@ -224,6 +230,30 @@ async function loadSession() {
   const pathInput = document.getElementById('cam-path');
   pathInput.readOnly = S.session.deployment === 'homeassistant';
   if (!isAdmin && S.activeTab === 'cameras') switchTab('timeline');
+}
+
+function fillStreamProfileForm(name, profile) {
+  if (!profile) return;
+  document.getElementById(`stream-${name}-scale`).value = profile.scale_percent;
+  document.getElementById(`stream-${name}-fps`).value = profile.fps;
+  document.getElementById(`stream-${name}-bitrate`).value = profile.bitrate_kbps;
+}
+
+async function loadStreamProfiles() {
+  S.streamProfiles = await api('/api/stream-profiles');
+  document.getElementById('quality-select').value = S.streamProfile;
+  if (S.session.is_admin) {
+    fillStreamProfileForm('balanced', S.streamProfiles.balanced);
+    fillStreamProfileForm('fast', S.streamProfiles.fast);
+  }
+}
+
+function streamProfileFormValue(name) {
+  return {
+    scale_percent: Number(document.getElementById(`stream-${name}-scale`).value),
+    fps: Number(document.getElementById(`stream-${name}-fps`).value),
+    bitrate_kbps: Number(document.getElementById(`stream-${name}-bitrate`).value),
+  };
 }
 
 function updateGridLayout() {
@@ -493,17 +523,33 @@ document.getElementById('btn-camera-filter').onclick = event => {
   event.stopPropagation();
   const menu = document.getElementById('camera-filter-menu');
   menu.classList.toggle('open');
+  document.getElementById('stream-options-menu').classList.remove('open');
+  document.getElementById('btn-stream-options').setAttribute('aria-expanded', 'false');
   event.currentTarget.setAttribute('aria-expanded', String(menu.classList.contains('open')));
 };
+document.getElementById('btn-stream-options').onclick = event => {
+  event.stopPropagation();
+  const menu = document.getElementById('stream-options-menu');
+  menu.classList.toggle('open');
+  document.getElementById('camera-filter-menu').classList.remove('open');
+  document.getElementById('btn-camera-filter').setAttribute('aria-expanded', 'false');
+  event.currentTarget.setAttribute('aria-expanded', String(menu.classList.contains('open')));
+};
+document.getElementById('stream-options-menu').onclick = event => event.stopPropagation();
 document.addEventListener('click', event => {
   if (!event.target.closest('#camera-filter-wrap')) {
     document.getElementById('camera-filter-menu').classList.remove('open');
     document.getElementById('btn-camera-filter').setAttribute('aria-expanded', 'false');
   }
+  if (!event.target.closest('#stream-options-wrap')) {
+    document.getElementById('stream-options-menu').classList.remove('open');
+    document.getElementById('btn-stream-options').setAttribute('aria-expanded', 'false');
+  }
 });
 
 document.getElementById('layout-select').value = S.layoutMode;
 document.getElementById('aspect-select').value = S.aspectMode;
+document.getElementById('preload-select').value = S.preloadMode;
 document.getElementById('grid-cols').value = S.customCols;
 document.getElementById('grid-rows').value = S.customRows;
 document.getElementById('custom-grid-controls').hidden = S.layoutMode !== 'custom';
@@ -1091,6 +1137,32 @@ document.getElementById('btn-rebuild-index').onclick = async () => {
   }
 };
 
+document.getElementById('btn-save-stream-profiles').onclick = async () => {
+  const button = document.getElementById('btn-save-stream-profiles');
+  if (!document.getElementById('stream-profile-settings').querySelectorAll('input:invalid').length) {
+    button.disabled = true;
+    try {
+      S.streamProfiles = await api('/api/admin/stream-profiles', {
+        method: 'PUT',
+        body: {
+          balanced: streamProfileFormValue('balanced'),
+          fast: streamProfileFormValue('fast'),
+        },
+      });
+      S.streamProfileRevision += 1;
+      fillStreamProfileForm('balanced', S.streamProfiles.balanced);
+      fillStreamProfileForm('fast', S.streamProfiles.fast);
+      toast(t('streaming.saved'), 'info');
+    } catch (error) {
+      toast(t('streaming.errorSaving', {message: localizeMessage(error.message)}), 'error');
+    } finally {
+      button.disabled = false;
+    }
+  } else {
+    document.getElementById('stream-profile-settings').querySelector('input:invalid')?.reportValidity();
+  }
+};
+
 // ═══ Timeline resize ═══
 (function() {
   const handle = document.getElementById('resize-handle');
@@ -1142,6 +1214,7 @@ window.addEventListener('orientationchange', scheduleViewportRefresh);
 window._ctvInit = function() {
   updateGridLayout();
   loadSession()
+    .then(() => loadStreamProfiles())
     .then(() => loadCameras())
     .then(() => initializeTimelineDate())
     .then(() => loadTimeline())
