@@ -52,6 +52,14 @@ def _hls_failure_detail(job: HlsJob) -> str:
     return detail[-1000:] or f"ffmpeg exited {job.process.returncode}"
 
 
+def initial_hls_segment_count(speed: float) -> int:
+    if speed >= 8:
+        return 4
+    if speed >= 4:
+        return 2
+    return 1
+
+
 def get_stream_profiles() -> dict:
     conn = get_db()
     rows = conn.execute(
@@ -299,8 +307,15 @@ async def ensure_hls_playlist(
             job.last_access = time.monotonic()
 
     playlist = job.directory / "index.m3u8"
+    required_segments = initial_hls_segment_count(speed)
     deadline = time.monotonic() + _HLS_START_TIMEOUT
     while time.monotonic() < deadline:
+        if job.process.returncode not in (None, 0):
+            log.warning(
+                "HLS session %s failed: %s",
+                job_id[:8], _hls_failure_detail(job),
+            )
+            raise RuntimeError("Unable to create HLS stream")
         if playlist.is_file():
             try:
                 contents = playlist.read_text(encoding="utf-8")
@@ -311,22 +326,23 @@ async def ensure_hls_playlist(
                 for line in contents.splitlines()
                 if _HLS_SEGMENT_PATTERN.fullmatch(line.strip())
             ]
-            if segment_names and (job.directory / segment_names[0]).is_file():
+            available_segments = sum(
+                (job.directory / name).is_file() for name in segment_names
+            )
+            stream_complete = job.process.returncode == 0
+            if available_segments and (
+                available_segments >= required_segments or stream_complete
+            ):
                 job.last_access = time.monotonic()
                 if not job.started_logged:
                     job.started_logged = True
                     log.info(
-                        "HLS session %s playable in %.2fs",
+                        "HLS session %s playable in %.2fs with %d buffered segments",
                         job_id[:8],
                         time.monotonic() - job.started_at,
+                        available_segments,
                     )
                 return playlist
-        if job.process.returncode is not None:
-            log.warning(
-                "HLS session %s failed: %s",
-                job_id[:8], _hls_failure_detail(job),
-            )
-            raise RuntimeError("Unable to create HLS stream")
         await asyncio.sleep(0.05)
     await _stop_process(job.process)
     log.warning(

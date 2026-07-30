@@ -9,7 +9,11 @@
     return Math.min(target, Math.max(0, duration - 0.05));
   }
 
-  function playbackCompleted({ ended, currentTime, expectedDuration, metadataReady, hasPlayed }) {
+  function playbackCompleted({
+    ended, currentTime, expectedDuration, metadataReady, hasPlayed,
+    buffering = false, warming = false,
+  }) {
+    if (buffering || warming) return false;
     if (!ended || !metadataReady || !hasPlayed) return false;
     if (!Number.isFinite(expectedDuration) || expectedDuration <= 0) return true;
     return currentTime >= expectedDuration - 0.5;

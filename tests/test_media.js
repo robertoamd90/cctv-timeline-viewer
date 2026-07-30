@@ -37,6 +37,14 @@ assert.equal(playbackCompleted({
 assert.equal(playbackCompleted({
   ended: false, currentTime: 9.9, expectedDuration: 10, metadataReady: true, hasPlayed: true,
 }), false, 'a growing Firefox duration must not be interpreted as a completed clip');
+assert.equal(playbackCompleted({
+  ended: true, currentTime: 10, expectedDuration: 10, metadataReady: true, hasPlayed: true,
+  buffering: true,
+}), false, 'a clip ending inside the global buffering barrier must not advance the timeline');
+assert.equal(playbackCompleted({
+  ended: true, currentTime: 10, expectedDuration: 10, metadataReady: true, hasPlayed: true,
+  warming: true,
+}), false, 'a warm-up playback must not advance the timeline');
 
 assert.equal(requiredPlaybackBuffer(16, 10, 30), 4);
 assert.equal(requiredPlaybackBuffer(16, 26, 30), 3.5);
@@ -65,6 +73,8 @@ assert(playerSource.includes('/stream/${rec.id}'));
 assert(playerSource.includes("canPlayType('application/vnd.apple.mpegurl')"));
 assert(playerSource.includes('/hls/${streamSessionId()}/index.m3u8'));
 assert.match(playerSource, /requiredPlaybackBuffer\(videoTimelineSpeed\(video\)/);
+assert.match(playerSource, /const completed = _wasBuffering \? null/);
+assert.match(playerSource, /showFreezeFrame\(v\);\s+v\.pause\(\)/);
 assert.match(playerSource, /ctv-preload-mode/);
 
 console.log('Media state tests passed');

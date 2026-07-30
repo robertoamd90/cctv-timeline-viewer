@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.24
+
+- Prebuffer four compressed HLS segments before starting 8x and 16x playback.
+- Pause warm-up players while the global synchronization barrier is active.
+- Prevent a clip ending during warm-up from skipping to later recordings.
+
 ## 0.1.23
 
 - Prebuffer compressed streams according to their effective timeline speed.
