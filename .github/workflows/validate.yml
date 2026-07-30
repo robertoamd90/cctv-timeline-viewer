@@ -1,0 +1,58 @@
+name: Validate Catalog
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Validate catalog metadata
+        run: |
+          python -m py_compile scripts/*.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          repository = yaml.safe_load(Path("repository.yaml").read_text())
+          state = json.loads(Path("release-state.json").read_text())
+          assert repository["name"] and repository["url"]
+
+          expected = {
+              "stable": ("cctv_viewer", "cctv_viewer", "ghcr.io/robertoamd90/cctv-viewer"),
+              "beta": (
+                  "cctv_viewer_beta",
+                  "cctv_viewer_beta",
+                  "ghcr.io/robertoamd90/cctv-viewer-beta",
+              ),
+          }
+          for channel, (directory, slug, image) in expected.items():
+              config = yaml.safe_load(Path(directory, "config.yaml").read_text())
+              assert config["slug"] == slug
+              assert config["image"] == image
+              assert config["version"] == state[channel]["version"]
+              assert set(config["arch"]) == {"amd64", "aarch64"}
+              assert config["ingress"] is True and config["ingress_stream"] is True
+              assert config["panel_admin"] is True
+              assert str(config["environment"]["CTV_HA_ADMIN_ONLY"]) == "1"
+              assert any(
+                  item.get("type") == "media" and item.get("read_only")
+                  for item in config["map"]
+              )
+              apparmor = Path(directory, "apparmor.txt").read_text()
+              assert "/media/ r," in apparmor and "/media/** r," in apparmor
+
+          assert not Path("Dockerfile").exists()
+          assert not Path("ctv_server").exists()
+          assert not Path("ctv_web").exists()
+          PY

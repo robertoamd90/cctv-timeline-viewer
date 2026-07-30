@@ -1,0 +1,96 @@
+name: Publish Stable Request
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".release-requests/stable.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: catalog-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read pending request
+        id: request
+        run: python scripts/read_request.py stable "$GITHUB_OUTPUT"
+
+      - name: Install catalog dependencies
+        if: steps.request.outputs.pending == 'true'
+        run: pip install pyyaml
+
+      - name: Check out immutable source
+        if: steps.request.outputs.pending == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: robertoamd90/cctv-timeline-viewer-core
+          ref: ${{ steps.request.outputs.source_sha }}
+          path: .source
+
+      - name: Set up Docker Buildx
+        if: steps.request.outputs.pending == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.request.outputs.pending == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote tested Beta image
+        if: steps.request.outputs.pending == 'true'
+        run: |
+          candidate="ghcr.io/${{ github.repository_owner }}/cctv-viewer-beta:${{ steps.request.outputs.candidate }}"
+          stable="ghcr.io/${{ github.repository_owner }}/cctv-viewer:${{ steps.request.outputs.version }}"
+          docker buildx imagetools inspect "$candidate"
+          docker buildx imagetools create \
+            --tag "$stable" \
+            --tag "ghcr.io/${{ github.repository_owner }}/cctv-viewer:latest" \
+            "$candidate"
+
+      - name: Verify promoted image
+        if: steps.request.outputs.pending == 'true'
+        id: image
+        run: |
+          docker buildx imagetools inspect --raw \
+            "ghcr.io/${{ github.repository_owner }}/cctv-viewer:${{ steps.request.outputs.version }}" \
+            > /tmp/manifest.json
+          python scripts/inspect_manifest.py /tmp/manifest.json "$GITHUB_OUTPUT"
+
+      - name: Expose Stable in Home Assistant
+        if: steps.request.outputs.pending == 'true'
+        run: |
+          git pull --rebase origin main
+          python scripts/publish_request.py \
+            stable \
+            "${{ steps.image.outputs.digest }}" \
+            .source/CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .release-requests/stable.json \
+            cctv_viewer/config.yaml \
+            cctv_viewer/CHANGELOG.md \
+            release-state.json
+          git commit -m \
+            "Publish CCTV Viewer ${{ steps.request.outputs.version }}"
+          git push origin main
