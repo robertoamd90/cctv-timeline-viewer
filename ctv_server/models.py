@@ -43,3 +43,14 @@ class ScanResult(BaseModel):
     status: str
     camera_id: Optional[int] = None
     cameras: Optional[int] = None
+
+
+class StreamProfileConfig(BaseModel):
+    scale_percent: int = Field(..., ge=20, le=100)
+    fps: int = Field(..., ge=2, le=30)
+    bitrate_kbps: int = Field(..., ge=100, le=8000)
+
+
+class StreamProfilesUpdate(BaseModel):
+    balanced: StreamProfileConfig
+    fast: StreamProfileConfig

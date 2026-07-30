@@ -7,10 +7,38 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ctv_server.auth import CurrentUser, current_user, require_admin
 from ctv_server.config import deployment_mode, path_within_source_roots, source_roots
 from ctv_server.db import write_db
+from ctv_server.models import StreamProfilesUpdate
 from ctv_server.operations import IndexBusyError, maintenance_window
+from ctv_server.streaming import get_stream_profiles
 from ctv_server.thumbnailer import THUMBNAIL_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.get("/stream-profiles")
+def stream_profiles():
+    return get_stream_profiles()
+
+
+@router.put("/admin/stream-profiles")
+def update_stream_profiles(
+    profiles: StreamProfilesUpdate,
+    _: CurrentUser = Depends(require_admin),
+):
+    with write_db() as conn:
+        for name, profile in (
+            ("balanced", profiles.balanced),
+            ("fast", profiles.fast),
+        ):
+            conn.execute(
+                """
+                UPDATE stream_profiles
+                SET scale_percent = ?, fps = ?, bitrate_kbps = ?
+                WHERE name = ?
+                """,
+                (profile.scale_percent, profile.fps, profile.bitrate_kbps, name),
+            )
+    return get_stream_profiles()
 
 
 @router.post("/admin/rebuild-index")

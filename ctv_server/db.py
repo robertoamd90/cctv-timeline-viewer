@@ -119,7 +119,24 @@ def init_db():
             PRIMARY KEY(camera_id, partition_key)
         );
         CREATE INDEX IF NOT EXISTS idx_partitions_requested ON partitions(last_requested);
+
+        CREATE TABLE IF NOT EXISTS stream_profiles (
+            name TEXT PRIMARY KEY,
+            scale_percent INTEGER NOT NULL,
+            fps INTEGER NOT NULL,
+            bitrate_kbps INTEGER NOT NULL
+        );
     """)
+    conn.executemany(
+        """
+        INSERT OR IGNORE INTO stream_profiles (name, scale_percent, fps, bitrate_kbps)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            ("balanced", 50, 15, 1200),
+            ("fast", 30, 8, 450),
+        ),
+    )
     # Migrazioni additive per database creati dalle versioni PoC.
     _add_columns(conn, "cameras", (
         "time_offset_seconds REAL NOT NULL DEFAULT 0",

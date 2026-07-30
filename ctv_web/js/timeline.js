@@ -444,5 +444,5 @@ function jumpToBoundary(direction) {
     for (let i=0; i < starts.length; i++) { if (starts[i] > S.currentTime + margin) { S.currentTime = starts[i]; break; } }
   }
   ensureTimelineTimeVisible(S.currentTime);
-  syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); renderPlayers();
+  syncAutoHotspotAtCurrentTime(); updateCursor(); updateTimeDisplay(); seekPlayersToTime();
 }
