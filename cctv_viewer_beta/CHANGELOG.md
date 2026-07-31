@@ -25,6 +25,10 @@
   decoding would produce an empty tail segment.
 - Complete very short MP4 tails inside the buffering barrier without replaying
   them from zero.
+- Size the startup buffer from the browser's actual media consumption rate,
+  avoiding a deadlock that could occur after a speed or quality change.
+- Skip compressed recording tails that are too short to produce a single
+  output frame, instead of surfacing a random demux or unplayable-file error.
 
 ## 0.1.24
 
