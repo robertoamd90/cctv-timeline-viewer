@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.25
+
+### Desktop compressed playback
+
+- Route Balanced and Fast playback through progressive MP4 on desktop browsers,
+  avoiding unreliable native HLS behavior reported by Chrome and Firefox.
+- Keep transcoded streams active behind the shared freeze frame while they
+  accumulate enough data to resume synchronized playback.
+- Preserve native HLS delivery on touch devices, where it remains the reliable
+  transport for mobile playback.
+- Prevent the buffering barrier from remaining permanently stuck on
+  "Source connection is slow" after the first compressed segment.
+
+### Playback transitions
+
+- Apply speed changes immediately to the current Native recording and preserve
+  the selected rate through later buffering barriers.
+- Let a parallel camera continue uninterrupted when another camera reaches the
+  end of its recording.
+- Reopen progressive streams from the authoritative timeline timestamp instead
+  of seeking inside non-seekable transcoded MP4 output.
+- Decode arbitrary high-speed offset starts normally when keyframe-only
+  decoding would produce an empty tail segment.
+- Complete very short MP4 tails inside the buffering barrier without replaying
+  them from zero.
+- Size the startup buffer from the browser's actual media consumption rate,
+  avoiding a deadlock that could occur after a speed or quality change.
+- Skip compressed recording tails that are too short to produce a single
+  output frame, instead of surfacing a random demux or unplayable-file error.
+
 ## 0.1.24
 
 ### Adaptive streaming
