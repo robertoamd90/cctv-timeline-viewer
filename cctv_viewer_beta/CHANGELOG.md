@@ -13,6 +13,19 @@
 - Prevent the buffering barrier from remaining permanently stuck on
   "Source connection is slow" after the first compressed segment.
 
+### Playback transitions
+
+- Apply speed changes immediately to the current Native recording and preserve
+  the selected rate through later buffering barriers.
+- Let a parallel camera continue uninterrupted when another camera reaches the
+  end of its recording.
+- Reopen progressive streams from the authoritative timeline timestamp instead
+  of seeking inside non-seekable transcoded MP4 output.
+- Decode arbitrary high-speed offset starts normally when keyframe-only
+  decoding would produce an empty tail segment.
+- Complete very short MP4 tails inside the buffering barrier without replaying
+  them from zero.
+
 ## 0.1.24
 
 ### Adaptive streaming
