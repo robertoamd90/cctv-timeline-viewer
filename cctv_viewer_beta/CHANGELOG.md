@@ -1,114 +1,71 @@
 # Changelog
 
+## 0.1.25
+
+### Desktop compressed playback
+
+- Route Balanced and Fast playback through progressive MP4 on desktop browsers,
+  avoiding unreliable native HLS behavior reported by Chrome and Firefox.
+- Keep transcoded streams active behind the shared freeze frame while they
+  accumulate enough data to resume synchronized playback.
+- Preserve native HLS delivery on touch devices, where it remains the reliable
+  transport for mobile playback.
+- Prevent the buffering barrier from remaining permanently stuck on
+  "Source connection is slow" after the first compressed segment.
+
 ## 0.1.24
 
-- Prebuffer four compressed HLS segments before starting 8x and 16x playback.
-- Pause warm-up players while the global synchronization barrier is active.
-- Prevent a clip ending during warm-up from skipping to later recordings.
+### Adaptive streaming
 
-## 0.1.23
+- Add Native, Balanced and Fast quality modes for local, VPN and mobile
+  connections.
+- Let administrators configure scale percentage, frame rate and maximum bitrate
+  for Balanced and Fast while preserving each recording's aspect ratio.
+- Apply accelerated playback during transcoding so client bandwidth remains
+  bounded by the selected profile, including at 8x and 16x.
+- Add per-browser Metadata and Automatic preload preferences to balance startup
+  latency against network and CPU usage.
 
-- Prebuffer compressed streams according to their effective timeline speed.
-- Decode keyframes only at 8x and 16x to reduce transcoder CPU pressure.
-- Keep full-frame decoding unchanged from 1x through 4x.
+### Mobile playback
 
-## 0.1.22
+- Deliver compressed streams as native HLS on iPhone, iPad and other WebKit
+  clients while retaining fragmented MP4 on compatible browsers.
+- Start playback as soon as the initial HLS buffer is ready and continue
+  transcoding incrementally instead of waiting for the complete recording.
+- Align HLS timestamps to zero and anchor playback to the recording start,
+  preventing repeated seeks and moving-live-edge behavior on mobile browsers.
+- Clean up generated HLS segments automatically after playback.
 
-- Start mobile HLS media timestamps at zero instead of the MPEG-TS default delay.
-- Prevent the synchronization coordinator from repeatedly seeking compressed
-  mobile streams before their first valid frame.
+### Synchronization and reliability
 
-## 0.1.21
+- Start active cameras behind a shared seek and buffering barrier and derive the
+  playback clock from their median timestamp.
+- Pause and realign the complete camera group when one stream falls behind,
+  rather than allowing cameras to drift apart.
+- Keep the last decoded frame visible while buffering and prevent completed
+  warm-up clips from skipping through later recordings.
+- Recenter the timeline immediately when playback crosses a large recording
+  gap and clear loading feedback as soon as a selected frame is ready.
 
-- Start compressed mobile playback as soon as the first HLS segment is ready.
-- Keep transcoding incrementally while the browser plays the recording.
-- Anchor WebKit playback to the beginning instead of the moving live edge.
-- Log HLS startup time, completion, timeouts and FFmpeg failures.
+### High-speed performance
 
-## 0.1.20
-
-- Use native HLS delivery for compressed profiles on iOS and other WebKit clients.
-- Keep fragmented MP4 streaming on browsers where it is already supported.
-- Remove temporary HLS segments automatically after playback.
-
-## 0.1.19
-
-- Add Native, Balanced and Fast client streaming quality modes.
-- Preserve each recording's aspect ratio by configuring compressed profiles with a scale percentage.
-- Let administrators configure scale, frame rate and maximum bitrate for Balanced and Fast.
-- Bake accelerated playback into compressed streams to keep client bandwidth bounded at high speeds.
-- Add a per-browser Metadata or Automatic preload preference.
-
-## 0.1.18
-
-- Load video metadata instead of preloading complete clips before playback.
-- Avoid unnecessary parallel video transfers while browsing or seeking on slower connections.
-
-## 0.1.17
-
-- Keep indexed timestamps raw and apply only the current camera offset when reading them.
-- Remove the temporary Beta 0.1.15 timestamp compatibility layer.
-- Add an administrator-only Rebuild Index action that preserves camera settings and source files.
-- Rebuild loaded days on demand after clearing recordings, partitions and generated thumbnails.
-
-## 0.1.16
-
-- Prevent camera offset changes and timeline preparation from competing for the SQLite writer.
-- Apply camera offsets at read time without rewriting all indexed recordings.
-- Preserve timestamps previously adjusted by Beta 0.1.15 during the automatic database migration.
-- Replace signed numeric input with explicit Earlier/Later direction controls.
-
-## 0.1.15
-
-- Add a configurable recording time offset for each camera.
-- Apply offset changes immediately to recordings already indexed, without requiring a rescan.
-- Resolve the correct physical date partition when an offset crosses midnight.
-
-## 0.1.14
-
-- Start all active cameras only after a shared seek and buffering barrier.
-- Derive the playback clock from the median camera timestamp instead of the first camera.
-- Pause and realign the complete camera group when timestamps diverge.
-
-## 0.1.13
-
-- Clear the loading state as soon as a selected frame is ready, even while playback is paused.
-- Recenter the visible timeline immediately when playback skips across a large recording gap.
-- Keep the last decoded frame visible during buffering warm-up to prevent black flashes.
+- Decode keyframes only for compressed 8x and 16x playback, reducing transcoder
+  CPU pressure while keeping full-frame decoding from 1x through 4x.
+- Scale the required startup buffer with effective timeline speed and prepare
+  four HLS segments before starting compressed 8x and 16x playback.
+- Hold every active camera at the synchronization barrier without consuming its
+  prepared buffer, improving recovery when several cameras become active at
+  once.
+- Add HLS startup, completion, timeout and FFmpeg failure diagnostics.
 
 ## 0.1.12
 
+- Improve the Auto Hotspot control layout and labeling on mobile screens.
 - Correct invalid fragmented-MP4 duration metadata while streaming, without modifying or transcoding source files.
-- Remove the Firefox loading workaround that could alternate between old and current frames.
-- Avoid artificial global buffering during routine high-speed camera synchronization.
+- Stabilize Firefox playback and clip transitions for camera-generated MP4 files.
+- Avoid visible frame rewinds during buffering warm-up.
+- Reduce artificial global buffering during high-speed camera synchronization.
 - Prevent playback from stalling on the final frames of a recording.
-
-## 0.1.11
-
-- Fix playback of camera MP4 files whose duration grows progressively in Firefox.
-- Use indexed recording duration instead of transient browser duration for seeking and completion.
-- Keep progressive media loading during synchronization barriers to prevent Firefox buffering deadlocks.
-
-## 0.1.10
-
-- Fix timeline playback on Firefox by seeking only after media metadata is available.
-- Prevent transient loading and stalled events from being interpreted as the end of a recording.
-- Retry an unexpected early media end instead of skipping the recording.
-
-## 0.1.9
-
-- Keep the full Auto Hotspot label on mobile when space is available.
-- Truncate the label with an ellipsis on narrower screens without changing the toolbar height.
-- Expose the complete label through the control title and accessibility metadata.
-
-## 0.1.8
-
-- Place the Auto Hotspot toggle in the mobile view-controls row.
-- Keep the full Auto Hotspot label on desktop and use a compact mobile label.
-
-## 0.1.7
-
-- Preview channel for upcoming CCTV Viewer features.
 
 ## 0.1.6
 
