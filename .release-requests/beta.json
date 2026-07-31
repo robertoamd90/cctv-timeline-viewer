@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "channel": "beta",
+  "version": "0.1.25-beta.1",
+  "source_repository": "robertoamd90/cctv-timeline-viewer-core",
+  "source_ref": "v0.1.25-beta.1",
+  "source_sha": "72d60575c2d7fb3a1e4c2d3008442873d5861d34",
+  "status": "pending",
+  "requested_at": "2026-07-31T06:05:07.921029+00:00"
+}
