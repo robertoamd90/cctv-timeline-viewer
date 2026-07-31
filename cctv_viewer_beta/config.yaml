@@ -1,11 +1,11 @@
 name: CCTV Viewer Beta
-version: "0.1.24"
+version: 0.1.25-beta.1
 slug: cctv_viewer_beta
 description: Preview builds of CCTV Viewer for testing upcoming features
 url: https://github.com/robertoamd90/cctv-timeline-viewer
 arch:
-  - amd64
-  - aarch64
+- amd64
+- aarch64
 startup: application
 boot: auto
 init: false
@@ -21,11 +21,11 @@ panel_icon: mdi:cctv
 panel_admin: true
 homeassistant_api: true
 map:
-  - type: media
-    read_only: true
+- type: media
+  read_only: true
 environment:
   CTV_DEPLOYMENT: homeassistant
-  CTV_HA_ADMIN_ONLY: "1"
+  CTV_HA_ADMIN_ONLY: '1'
   CTV_DB: /data/ctv.db
   CTV_THUMBNAILS: /data/thumbnails
   CTV_SOURCE_ROOTS: /media
@@ -33,4 +33,4 @@ environment:
 watchdog: http://[HOST]:[PORT:8000]/api/health
 backup: cold
 backup_exclude:
-  - /data/thumbnails/**
+- /data/thumbnails/**
