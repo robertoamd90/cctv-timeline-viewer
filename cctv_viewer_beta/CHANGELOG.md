@@ -2,6 +2,15 @@
 
 ## 0.1.26
 
+### Mobile viewing
+
+- Let mobile users collapse the date and view-control rows while keeping the
+  primary playback controls available, and remember the compact preference.
+- Keep mobile control heights consistent by preventing the Auto Hotspot
+  checkbox from expanding its toolbar row.
+- Keep the screen awake during active playback on browsers that support the
+  Screen Wake Lock API, releasing it on pause or when the page is hidden.
+
 ### Playback performance and cleanup
 
 - Stop abandoned progressive FFmpeg transcodes when a client no longer consumes
