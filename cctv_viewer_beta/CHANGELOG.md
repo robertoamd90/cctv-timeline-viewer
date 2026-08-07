@@ -9,10 +9,6 @@
   keep the toggle inside the first control row without covering the video.
 - Keep mobile control heights consistent by preventing the Auto Hotspot
   checkbox from expanding its toolbar row.
-- Keep the screen awake during active playback on browsers that support the
-  Screen Wake Lock API, with a local silent-video fallback for iPhone and iPad
-  WebViews, releasing both mechanisms on pause or when the page is hidden.
-
 ### Playback performance and cleanup
 
 - Stop abandoned progressive FFmpeg transcodes when a client no longer consumes
