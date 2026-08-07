@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.26
+
+### Playback performance and cleanup
+
+- Stop abandoned progressive FFmpeg transcodes when a client no longer consumes
+  output, and terminate any remaining progressive jobs during server shutdown.
+- Reduce playback UI work by throttling clock rendering while keeping the
+  synchronization state machine on every animation frame.
+- Move the overview playhead independently instead of redrawing every timeline
+  segment throughout playback.
+- Use binary lookup for the active recording, keeping segment selection fast on
+  densely populated days.
+
+### Indexing efficiency
+
+- Reserve partition scans atomically so concurrent clients cannot enqueue the
+  same remote-directory scan multiple times.
+- Apply the partition refresh interval to missing day directories, avoiding
+  repeated filesystem and database work while still detecting them later.
+
 ## 0.1.25
 
 ### Desktop compressed playback
