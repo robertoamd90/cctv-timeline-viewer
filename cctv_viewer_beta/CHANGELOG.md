@@ -2,6 +2,14 @@
 
 ## 0.1.27
 
+### Database recovery
+
+- Keep the rebuild operation independent from the derived interval index so a
+  damaged R-Tree can be discarded without losing camera configuration.
+- Probe R-Tree writes at startup and automatically use the indexed SQL fallback
+  when the optional accelerator is unavailable.
+- Report SQLite extended error names and codes for failed scans and rebuilds.
+
 ### Large archive performance
 
 - Add a persistent interval index for timeline and time-bounded search queries,
