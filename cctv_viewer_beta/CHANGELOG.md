@@ -9,6 +9,8 @@
 - Probe R-Tree writes at startup and automatically use the indexed SQL fallback
   when the optional accelerator is unavailable.
 - Report SQLite extended error names and codes for failed scans and rebuilds.
+- Show a persistent interface warning and the stored diagnostic whenever the
+  timeline accelerator is running in SQL fallback mode.
 
 ### Large archive performance
 
