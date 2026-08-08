@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.27
+
+### Large archive performance
+
+- Add a persistent interval index for timeline and time-bounded search queries,
+  keeping response times nearly constant across archives with up to one million
+  recordings while retaining exact camera-offset and overlap semantics.
+- Maintain camera availability counters incrementally and use indexed boundary
+  lookups instead of aggregating the complete recordings table.
+- Keep SQLite WAL state warm between requests and cache streaming profiles to
+  remove repeated database setup work from hot paths.
+
+### Timeline rendering
+
+- Index recording intervals in the browser for fast visible-window and Auto
+  Hotspot selection on densely populated timelines.
+- Cache the overview canvas, delegate segment hover handling, coalesce panning
+  renders and load timeline thumbnails lazily.
+- Avoid repeated media-buffer and absolute-time calculations during playback
+  synchronization frames.
+
+### Indexing efficiency and validation
+
+- Reconcile missing recordings with set-based SQL, bound concurrent metadata
+  probes and scan directories through `scandir` to reduce CPU, memory and
+  database work on large sources.
+- Add repeatable backend, indexer and frontend performance benchmarks together
+  with randomized equivalence, migration and interval-boundary regression tests.
+
 ## 0.1.26
 
 ### Mobile viewing
