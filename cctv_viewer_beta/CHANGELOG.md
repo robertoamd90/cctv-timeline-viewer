@@ -2,21 +2,20 @@
 
 ## 0.1.27
 
-### Database recovery
+### Partition-aware timeline index
 
-- Keep the rebuild operation independent from the derived interval index so a
-  damaged R-Tree can be discarded without losing camera configuration.
-- Probe R-Tree writes at startup and automatically use the indexed SQL fallback
-  when the optional accelerator is unavailable.
-- Report SQLite extended error names and codes for failed scans and rebuilds.
-- Show a persistent interface warning and the stored diagnostic whenever the
-  timeline accelerator is running in SQL fallback mode.
+- Detach the R-Tree write triggers from early betas before any recording
+  maintenance, leaving the unused virtual table untouched so even a damaged
+  optional index cannot block scans or rebuilds.
+- Query the exact daily partitions through an ordinary composite SQLite index,
+  matching the application's one-day timeline workflow without virtual tables.
+- Keep rebuild independent from derived data and report SQLite extended error
+  names, codes and the failing scan stage when database operations fail.
 
 ### Large archive performance
 
-- Add a persistent interval index for timeline and time-bounded search queries,
-  keeping response times nearly constant across archives with up to one million
-  recordings while retaining exact camera-offset and overlap semantics.
+- Add partition-aware composite indexes for timeline and time-bounded search
+  queries while retaining exact camera-offset and overlap semantics.
 - Maintain camera availability counters incrementally and use indexed boundary
   lookups instead of aggregating the complete recordings table.
 - Keep SQLite WAL state warm between requests and cache streaming profiles to
