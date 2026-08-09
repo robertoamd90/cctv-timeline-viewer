@@ -12,17 +12,33 @@
 - Keep rebuild independent from derived data and report SQLite extended error
   names, codes and the failing scan stage when database operations fail.
 
+### Home Assistant database recovery
+
+- Direct SQLite temporary files to the AppArmor-authorized `/tmp` directory;
+  SQLite otherwise prefers `/var/tmp`, which the application sandbox denies.
+- Reconcile removed recordings with single-row statements so large scans do not
+  require a disk-backed statement journal.
+- Delete camera data and rebuild the archive through bounded single-row
+  operations, keeping both recovery actions usable under Home Assistant.
+- Make partition thumbnail workers cancellable derived work, preventing them
+  from leaving Rebuild index permanently blocked after a scan.
+- Return to short-lived SQLite connections instead of retaining an idle WAL
+  connection across the complete server lifetime.
+
 ### Large archive performance
 
 - Add partition-aware composite indexes for timeline and time-bounded search
   queries while retaining exact camera-offset and overlap semantics.
 - Maintain camera availability counters incrementally and use indexed boundary
   lookups instead of aggregating the complete recordings table.
-- Keep SQLite WAL state warm between requests and cache streaming profiles to
-  remove repeated database setup work from hot paths.
+- Cache streaming profiles to remove repeated database work from hot paths.
 
 ### Timeline rendering
 
+- Aggregate progress across simultaneous camera partitions and keep each
+  counter monotonic when delayed events arrive out of order.
+- Reset progress before retrying a partition, so a missing future day cannot
+  briefly display file counts left by an earlier failed scan.
 - Index recording intervals in the browser for fast visible-window and Auto
   Hotspot selection on densely populated timelines.
 - Cache the overview canvas, delegate segment hover handling, coalesce panning
@@ -32,6 +48,11 @@
 
 ### Indexing efficiency and validation
 
+- Recover video duration from stream metadata when the container omits it and
+  report ffprobe failures instead of silently indexing zero-length segments.
+- Bust native-video URLs after a reload and recover from stale browser byte
+  ranges when rebuilt databases reuse recording IDs, preventing persistent 416
+  playback failures.
 - Reconcile missing recordings with set-based SQL, bound concurrent metadata
   probes and scan directories through `scandir` to reduce CPU, memory and
   database work on large sources.
