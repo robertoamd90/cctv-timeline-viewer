@@ -33,6 +33,19 @@
   lookups instead of aggregating the complete recordings table.
 - Cache streaming profiles to remove repeated database work from hot paths.
 
+### Playback resource control
+
+- Pace mobile HLS generation slightly ahead of playback instead of encoding
+  the entire remainder of every camera recording as fast as possible.
+- Give each simultaneous decoder, filter graph and H.264 encoder one CPU
+  thread, preventing three-camera mobile playback from multiplying into
+  unrestricted multi-core FFmpeg workloads.
+- Cancel mobile HLS jobs immediately when a stream is replaced, playback is
+  paused or the page closes, with a server-side idle watchdog for abandoned
+  clients.
+- Restrict background thumbnail decoding, filtering and encoding to one thread
+  so indexing cannot starve active video delivery.
+
 ### Timeline rendering
 
 - Aggregate progress across simultaneous camera partitions and keep each
