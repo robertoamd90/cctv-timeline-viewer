@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.28
+
+### Remote playback efficiency
+
+- Preserve aligned MP4 streams during buffering and restart only cameras that
+  need realignment. Use separate running and recovery buffer thresholds to
+  reduce repeated short pauses on limited bandwidth.
+- Ignore obsolete playback responses after seeking or changing sources. Bound
+  recovery attempts and show an explicit message with a retry action.
+- Add a shared, configurable MP4/HLS transcoder limit in the Cameras view,
+  admitting sessions before starting video delivery and releasing capacity
+  when encoding finishes or playback is cancelled.
+- Release incomplete compressed streams after a short pause grace period and
+  when leaving the page; reuse fully downloaded MP4 buffers on resume.
+- Add a configurable HLS temporary-space budget, defaulting to 256 MiB, with
+  explicit session invalidation when the budget is exceeded. No additional
+  recording archive or persistent video copies are created.
+- Remove HLS input pacing at 8x/16x to avoid delayed startup after seeks, and
+  fix native HLS playback of very short clip tails before the next recording.
+- Add bounded playback diagnostics and synthetic benchmark tools for field
+  investigation without scanning or duplicating the surveillance archive.
+
 ## 0.1.27
 
 ### Partition-aware timeline index
