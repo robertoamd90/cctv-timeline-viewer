@@ -2,7 +2,6 @@
 
 profile cctv_viewer_beta flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
-  # Allow the confined app to read glibc/NSS resolver configuration.
   #include <abstractions/nameservice>
 
   network inet stream,

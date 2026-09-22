@@ -81,18 +81,6 @@ jobs:
             > /tmp/manifest.json
           python scripts/inspect_manifest.py /tmp/manifest.json "$GITHUB_OUTPUT"
 
-      - name: Synchronize Beta AppArmor policy from tagged source
-        if: steps.request.outputs.pending == 'true'
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          source = Path('.source/packaging/homeassistant/apparmor.txt').read_text(encoding='utf-8')
-          assert '#include <abstractions/nameservice>' in source
-          assert source.count('profile cctv_viewer ') == 1
-          target = source.replace('profile cctv_viewer ', 'profile cctv_viewer_beta ', 1)
-          Path('cctv_viewer_beta/apparmor.txt').write_text(target, encoding='utf-8')
-          PY
-
       - name: Expose Beta in Home Assistant
         if: steps.request.outputs.pending == 'true'
         run: |
@@ -106,7 +94,6 @@ jobs:
           git add \
             .release-requests/beta.json \
             cctv_viewer_beta/config.yaml \
-            cctv_viewer_beta/apparmor.txt \
             cctv_viewer_beta/CHANGELOG.md \
             release-state.json
           git commit -m \
