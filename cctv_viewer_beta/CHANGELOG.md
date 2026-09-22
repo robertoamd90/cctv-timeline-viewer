@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.29
+
+### Home Assistant recording events (experimental)
+
+- Add guided selection of Home Assistant binary sensors, searchable by name or
+  entity ID, and explicit association with person, vehicle, animal, motion or
+  doorbell detections. Save associations in the camera configuration.
+- Fetch camera history after daily partition indexing and store detection types
+  and timestamps on the existing recording records. Show labels on timeline
+  segments and navigate to the first detection of a type with up to ten seconds
+  of lead-in within the clip.
+- Preserve cached detections across routine rescans and temporary HA failures;
+  distinguish unverified historical coverage from a confirmed absence of events.
+- This beta supports daily partition indexing and binary sensors only. HA must
+  still retain the requested history. Rebuilding the index or deleting recording
+  records removes their saved detections. No live collection or video copies
+  are introduced.
+
 ## 0.1.28
 
 ### Remote playback efficiency
