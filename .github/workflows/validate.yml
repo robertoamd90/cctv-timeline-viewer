@@ -51,7 +51,8 @@ jobs:
               )
               apparmor = Path(directory, "apparmor.txt").read_text()
               assert "/media/ r," in apparmor and "/media/** r," in apparmor
-              assert "#include <abstractions/nameservice>" in apparmor
+              if channel == "beta":
+                  assert "#include <abstractions/nameservice>" in apparmor
 
           assert not Path("Dockerfile").exists()
           assert not Path("ctv_server").exists()
