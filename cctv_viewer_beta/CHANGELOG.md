@@ -2,6 +2,14 @@
 
 ## 0.1.29
 
+### Beta 4: Home Assistant DNS in confined application
+
+- Allow the confined Home Assistant application to read standard resolver and NSS
+  configuration by including the AppArmor nameservice abstraction. The existing
+  socket permissions alone do not grant access to resolver configuration files.
+- Retain the official Supervisor hostname and token transport. No fixed IP,
+  extra container privileges, or changes to release workflows are introduced.
+
 ### Beta 2: Home Assistant connectivity
 
 - Use a shared direct HTTP client for the internal Supervisor proxy, avoiding
