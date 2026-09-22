@@ -1,14 +1,10 @@
 {
   "schema": 1,
   "channel": "beta",
-  "version": "0.1.29-beta.3",
+  "version": "0.1.29-beta.4",
   "source_repository": "robertoamd90/cctv-timeline-viewer-core",
-  "source_ref": "poc/daily-ha-events",
-  "source_sha": "d2b448baee4f417e93c07258328e53ed7686e91a",
-  "status": "failed",
-  "requested_at": "2026-09-22T20:45:16.771Z",
-  "failure_stage": "catalog_manifest_publication",
-  "failure_reason": "Workflow failed at git pull --rebase after local AppArmor edit; superseded by clean POC candidate.",
-  "image": "ghcr.io/robertoamd90/cctv-viewer-beta:0.1.29-beta.3",
-  "image_digest": "sha256:0c268d89d6353e0c4ebc2602fc1ab202e99454a748b3ef0056fcf436f24b4f91"
+  "source_ref": "v0.1.29-beta.4",
+  "source_sha": "b7054184f787f49c6f0564cce1cc66c6c7a60ce0",
+  "status": "pending",
+  "requested_at": "2026-09-22T21:24:10.382103+00:00"
 }
