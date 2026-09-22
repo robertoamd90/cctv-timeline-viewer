@@ -2,6 +2,14 @@
 
 ## 0.1.29
 
+### Beta 2: Home Assistant connectivity
+
+- Use a shared direct HTTP client for the internal Supervisor proxy, avoiding
+  environment proxies, redirects and unnecessary TLS initialization. Apply the
+  same transport to entity discovery and daily event history.
+- Report distinct missing-token, authentication, DNS, timeout, permission and
+  response errors in the picker, with safe diagnostic codes in server logs.
+
 ### Home Assistant recording events (experimental)
 
 - Add guided selection of Home Assistant binary sensors, searchable by name or
