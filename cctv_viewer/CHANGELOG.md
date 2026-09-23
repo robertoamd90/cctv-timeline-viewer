@@ -1,5 +1,74 @@
 # Changelog
 
+## 0.1.29
+
+### Beta 7: Mobile spacing
+
+- Keep video event badges eight pixels from the image edges, reserving space
+  for the camera name only in the top-left corner.
+- Fit all five mobile view controls on one row, removing the extra Auto row
+  and preventing filter buttons from overlapping.
+
+### Beta 6: Event filters and video badges
+
+- Filter whole recordings by one or more event types using OR matching, and
+  skip excluded recordings during synchronized playback across displayed cameras.
+- Show event badges on each camera video during recorded on/off intervals,
+  falling back to three seconds when the end is unknown. Respect seeking and
+  accelerated playback; keep badges within the displayed image.
+- Configure the badge position per camera using six top/bottom and corner
+  positions, applied with Save camera.
+- Preserve events spanning recording boundaries and refresh older cached
+  event data for duration information when HA history is still available.
+- Use a moving-person icon for person detections and an abstract motion icon
+  for generic motion.
+
+### Beta 5: Camera event configuration and timeline feedback
+
+- Replace the association list with five fixed searchable fields: person,
+  vehicle, animal, motion and doorbell. Select one sensor per type, see its name
+  and entity ID, and clear it with the adjacent remove button.
+- Apply associations only with Save camera and keep the saved camera selected,
+  with values reloaded from the server. Preserve existing associations when
+  Home Assistant is unavailable.
+- Refresh indexed days after association changes, update thumbnails when their
+  background generation completes, and discard stale timeline responses.
+- Show event icons on recording segments with navigation to the detection.
+- Validate selection, saving, switching cameras, clearing, reopening, event
+  navigation and thumbnail refresh in desktop and mobile browser fixtures.
+
+### Beta 4: Home Assistant DNS in confined application
+
+- Allow the confined Home Assistant application to read standard resolver and NSS
+  configuration by including the AppArmor nameservice abstraction. The existing
+  socket permissions alone do not grant access to resolver configuration files.
+- Retain the official Supervisor hostname and token transport. No fixed IP,
+  extra container privileges, or changes to release workflows are introduced.
+
+### Beta 2: Home Assistant connectivity
+
+- Use a shared direct HTTP client for the internal Supervisor proxy, avoiding
+  environment proxies, redirects and unnecessary TLS initialization. Apply the
+  same transport to entity discovery and daily event history.
+- Report distinct missing-token, authentication, DNS, timeout, permission and
+  response errors in the picker, with safe diagnostic codes in server logs.
+
+### Home Assistant recording events (experimental)
+
+- Add guided selection of Home Assistant binary sensors, searchable by name or
+  entity ID, and explicit association with person, vehicle, animal, motion or
+  doorbell detections. Save associations in the camera configuration.
+- Fetch camera history after daily partition indexing and store detection types
+  and timestamps on the existing recording records. Show labels on timeline
+  segments and navigate to the first detection of a type with up to ten seconds
+  of lead-in within the clip.
+- Preserve cached detections across routine rescans and temporary HA failures;
+  distinguish unverified historical coverage from a confirmed absence of events.
+- This beta supports daily partition indexing and binary sensors only. HA must
+  still retain the requested history. Rebuilding the index or deleting recording
+  records removes their saved detections. No live collection or video copies
+  are introduced.
+
 ## 0.1.28
 
 ### Remote playback efficiency
