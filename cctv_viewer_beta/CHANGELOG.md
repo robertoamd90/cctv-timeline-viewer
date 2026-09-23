@@ -2,6 +2,13 @@
 
 ## 0.1.29
 
+### Beta 7: Mobile spacing
+
+- Keep video event badges eight pixels from the image edges, reserving space
+  for the camera name only in the top-left corner.
+- Fit all five mobile view controls on one row, removing the extra Auto row
+  and preventing filter buttons from overlapping.
+
 ### Beta 6: Event filters and video badges
 
 - Filter whole recordings by one or more event types using OR matching, and
