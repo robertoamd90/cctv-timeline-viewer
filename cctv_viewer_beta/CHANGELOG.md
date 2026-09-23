@@ -2,6 +2,20 @@
 
 ## 0.1.29
 
+### Beta 5: Camera event configuration and timeline feedback
+
+- Replace the association list with five fixed searchable fields: person,
+  vehicle, animal, motion and doorbell. Select one sensor per type, see its name
+  and entity ID, and clear it with the adjacent remove button.
+- Apply associations only with Save camera and keep the saved camera selected,
+  with values reloaded from the server. Preserve existing associations when
+  Home Assistant is unavailable.
+- Refresh indexed days after association changes, update thumbnails when their
+  background generation completes, and discard stale timeline responses.
+- Show event icons on recording segments with navigation to the detection.
+- Validate selection, saving, switching cameras, clearing, reopening, event
+  navigation and thumbnail refresh in desktop and mobile browser fixtures.
+
 ### Beta 4: Home Assistant DNS in confined application
 
 - Allow the confined Home Assistant application to read standard resolver and NSS
