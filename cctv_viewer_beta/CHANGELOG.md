@@ -2,6 +2,20 @@
 
 ## 0.1.29
 
+### Beta 6: Event filters and video badges
+
+- Filter whole recordings by one or more event types using OR matching, and
+  skip excluded recordings during synchronized playback across displayed cameras.
+- Show event badges on each camera video during recorded on/off intervals,
+  falling back to three seconds when the end is unknown. Respect seeking and
+  accelerated playback; keep badges within the displayed image.
+- Configure the badge position per camera using six top/bottom and corner
+  positions, applied with Save camera.
+- Preserve events spanning recording boundaries and refresh older cached
+  event data for duration information when HA history is still available.
+- Use a moving-person icon for person detections and an abstract motion icon
+  for generic motion.
+
 ### Beta 5: Camera event configuration and timeline feedback
 
 - Replace the association list with five fixed searchable fields: person,
