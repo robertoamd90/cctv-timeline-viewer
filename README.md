@@ -21,11 +21,32 @@ Network storage must first be configured in Home Assistant as Media storage.
 CCTV Viewer receives `/media` read-only and never mounts SMB or NFS shares
 itself.
 
+## Features and user guide
+
+- Synchronized multi-camera playback with timeline thumbnails, day navigation,
+  camera filters, grid layouts and manual or automatic Hotspot.
+- Native, Balanced and Fast streaming, with configurable server resource limits
+  for slower remote connections.
+- Home Assistant person, vehicle, animal, motion and doorbell detections linked
+  to recordings during daily indexing.
+- Searchable sensor fields per camera, event filters that also skip excluded
+  clips, and timed badges with six per-camera positions.
+- Compact mobile controls and English/Italian interfaces.
+
+Read the [user guide](cctv_viewer/DOCS.md) for setup, sensor associations,
+filter behavior, time-offset examples, history requirements and backups.
+The [changelog](cctv_viewer/CHANGELOG.md) describes stable releases.
+
+Event history must still exist in HA when a day is indexed. Already saved events
+are retained with recording records, but rebuilding the index removes them.
+No video copies or continuous event collector are introduced.
+
 ## Release Channels
 
 - **CCTV Viewer** is the stable channel.
 - **CCTV Viewer Beta** receives release candidates and uses separate app data,
-  so it can be installed alongside stable.
+  so it can be installed alongside stable. Settings and indexed events are not
+  transferred automatically between the two installations.
 
 Both channels use prebuilt multi-architecture images for `amd64` and `aarch64`.
 The catalog version is changed only after the matching GHCR image has been

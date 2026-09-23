@@ -2,6 +2,7 @@
 
 profile cctv_viewer flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
+  #include <abstractions/nameservice>
 
   network inet stream,
   network inet dgram,
@@ -20,6 +21,7 @@ profile cctv_viewer flags=(attach_disconnected,mediate_deleted) {
   /data/** rwk,
   /media/ r,
   /media/** r,
+  /tmp/ rw,
   /tmp/** rwk,
   /proc/** r,
   /dev/null rw,

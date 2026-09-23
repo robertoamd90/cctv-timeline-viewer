@@ -22,6 +22,94 @@ index, loaded day partitions and generated thumbnails while preserving camera
 settings and original files. Days are indexed again when requested from the
 timeline.
 
+## Detection events from Home Assistant
+
+Event enrichment is available in the Home Assistant app through the Supervisor
+connection. Standalone and generic Docker deployments can browse recordings,
+but do not provide this HA connection automatically. No extra token needs to be
+entered in the Home Assistant app.
+
+### Configure each camera
+
+1. Open **Cameras**, select the camera and configure daily partition indexing
+   with the directory pattern matching your archive, such as `{YYYY}/{MM}/{DD}`.
+2. In the event fields, type part of a sensor's friendly name or entity ID and
+   select a result from the dropdown. There is one field each for **Person**,
+   **Vehicle**, **Animal**, **Motion** and **Doorbell**, with one entity per field.
+3. Use `binary_sensor` entities whose `on` state means the detection is active.
+   A camera entity or an HA event entity is not a supported substitute. Leave
+   types your camera does not support empty. Use **×** to clear a selection.
+4. Choose the video badge position: top-left, top-center, top-right, bottom-left,
+   bottom-center or bottom-right. The default is top-right.
+5. Select **Save camera**. Sensor selections, removals and badge position apply
+   only on save. Select the camera again later to review its saved associations.
+
+The app reads sensor history when it indexes a requested day and associates
+intervals with that day's recordings. Changing associations makes indexed days
+eligible for refresh when requested again. Merely saving a camera does not
+collect its entire historical archive. A sensor-list connection error preserves
+saved associations: retry after HA connectivity is restored.
+
+### Find and play detections
+
+Timeline clips show an icon for each associated event type. Select an icon to
+seek to the first detection of that type in the clip, with up to ten seconds of
+lead-in, limited to the clip start. Person uses a moving-person icon; generic
+motion uses an abstract motion symbol.
+
+Open **Events** in the timeline toolbar and select one or more types. Selections
+use **OR**: Vehicle plus Person includes clips containing either type, as well as
+clips containing both. The camera filter still controls which cameras you see.
+**Show all**, or clearing every event checkbox, restores all recordings. The
+event selection applies to the current page session.
+
+Filtering keeps **whole matching clips**, including footage before and after a
+selected detection. Playback skips excluded recordings. When no displayed
+camera has a matching clip at the current time, playback jumps to the next
+matching clip; cameras without a matching clip remain blank. If nothing matches,
+playback stops with a message. Clips without saved matching events are excluded,
+even if their footage might contain an undetected or unindexed event.
+
+### Badges and synchronization
+
+Each camera displays badges for its active events over its own video, including
+other event types present in a clip selected by the filter. Badges follow the
+video timestamp during playback, seeking and speed changes. Known `on`/`off`
+intervals determine duration; if the end is missing, the fallback is **three
+seconds of recorded time**. These are historical detections displayed during
+playback, not new live detection or video analysis.
+
+Badges sit inside the displayed image, excluding black letterbox bars. Small
+screens use icons without text. The top-left position leaves room for the camera
+name. The mobile toolbar can collapse its date and view controls using the
+chevron while keeping playback controls available.
+
+**Recording time offset is already accounted for.** For example, a filename
+of `12:00:05` with an Earlier offset of 5 seconds starts on the timeline at
+`12:00:00`. An HA detection at `12:00:02` belongs two seconds into that video.
+Do not apply the recording offset again to the HA event. This aligns timestamps;
+it does not compensate for a sensor's own reporting latency or an incorrect
+camera clock. After changing an offset, event associations refresh when the day
+is reindexed.
+
+### Historical coverage, retention and backups
+
+HA must still retain the sensor history when a day is first indexed. Opening a
+day from five months ago cannot recover events HA has already discarded. Once
+associated, events are stored with recording records in CCTV Viewer's SQLite
+index and can remain visible after HA history expires. Routine rescans and
+temporary HA failures preserve cached events; missing history is not treated as
+proof of no activity. Event enrichment currently uses daily partitions, not
+recursive indexing, and there is no continuous background event collector.
+
+**Rebuild index deletes saved events**, along with recording records and
+thumbnails. Removing a camera or removing its recording records also removes
+those events. Reindexing can restore them only if HA still has the history.
+Back up the app database before rebuilding if the saved historical events
+matter. Camera settings and original videos survive an index rebuild. No second
+video archive is created. Beta and stable have separate data: promoting the
+software does not migrate cameras or event history between their installations.
+
 ## Streaming quality
 
 Open **Stream** in the timeline toolbar to choose a preference for the current
@@ -39,11 +127,26 @@ of Balanced and Fast in the Cameras view. Scaling keeps the original aspect
 ratio. High playback speeds are applied during transcoding so client bandwidth
 stays close to the selected profile bitrate. Transcoding uses Home Assistant
 host CPU; use Native when the client connection is fast enough. CCTV Viewer
-automatically uses native HLS delivery on iPhone, iPad and other WebKit clients.
+automatically uses native HLS for compressed playback on iPhone, iPad and other WebKit clients.
 On these clients, playback starts after the initial compressed buffer is ready
 and transcoding continues incrementally while the recording plays. At 8x and
 16x, compressed profiles sample source keyframes to keep transcoding ahead of
 playback on lower-power Home Assistant hardware.
+
+## Server resources and recovery
+
+In **Cameras**, administrators can limit concurrent compressed streams and set
+an HLS temporary-space budget (256 MiB by default). The stream limit is shared
+by all viewers; `0` means unlimited. If capacity is exhausted, reduce the number
+of displayed cameras or wait and use the retry action. Pausing and leaving the
+page release incomplete compressed sessions. Temporary streaming files do not
+create another recording archive. A slow camera can pause the synchronized
+group while it buffers, keeping the cameras aligned.
+
+**Hotspot** enlarges one camera. Enable **Auto** to promote cameras according to
+recording starts, or select a camera manually. The timeline overview, zoom and
+day controls help navigate large archives. Drag the divider above the timeline
+to resize it; on mobile, the chevron collapses the secondary toolbar rows.
 
 ## Permissions
 
