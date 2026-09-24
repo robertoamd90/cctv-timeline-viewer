@@ -24,10 +24,15 @@ timeline.
 
 ## Automatic indexing of today
 
-In **Cameras**, select a camera and enable **Index today in the background**.
-Set the **Interval (minutes)** and use **Save camera**. Settings are per camera;
+In **Cameras**, open the general **Automatic indexing — all cameras** section
+and enable **Index today in the background**. Set the **Interval (minutes)**
+and use **Save automatic indexing**. One global setting covers every camera
+using date-partitioned indexing;
 automatic indexing is off by default and the suggested interval is 60 minutes.
-The accepted range is 1–10080 minutes. It requires date-partitioned indexing.
+The accepted range is 1–10080 minutes. Cameras using recursive indexing are
+excluded. When upgrading from beta 1, the new global setting starts disabled
+at 60 minutes; enable it once to apply it to all supported cameras. Previous
+per-camera toggles are no longer used. Recordings and saved events are preserved.
 
 The server runs the schedule even with the browser closed. Enabling it makes
 an initial scan due; later runs wait the configured interval after the previous
@@ -61,7 +66,7 @@ Automatic daily indexing also enriches recordings with configured HA events.
 It creates no video copies and does not fetch historical days in the background.
 Disabling it stops future scheduled scans; an already running scan can finish.
 The previous recently-viewed-partition watcher is replaced by these explicit
-per-camera schedules; `CTV_WATCHER_SECONDS` no longer controls background scans.
+global settings; `CTV_WATCHER_SECONDS` no longer controls background scans.
 
 ## Detection events from Home Assistant
 
