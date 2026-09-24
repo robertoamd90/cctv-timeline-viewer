@@ -22,6 +22,47 @@ index, loaded day partitions and generated thumbnails while preserving camera
 settings and original files. Days are indexed again when requested from the
 timeline.
 
+## Automatic indexing of today
+
+In **Cameras**, select a camera and enable **Index today in the background**.
+Set the **Interval (minutes)** and use **Save camera**. Settings are per camera;
+automatic indexing is off by default and the suggested interval is 60 minutes.
+The accepted range is 1–10080 minutes. It requires date-partitioned indexing.
+
+The server runs the schedule even with the browser closed. Enabling it makes
+an initial scan due; later runs wait the configured interval after the previous
+attempt completes. The scheduler checks due work roughly every ten seconds and
+processes cameras sequentially, so busy periods can delay a run. Attempts that
+fail, including an offline NAS, also wait the configured interval before retry.
+Saved schedules survive restarts; interrupted jobs become eligible again.
+
+Only the **current day's directory in the camera's timezone** is scanned. At
+midnight the next due check switches to the new day. Missed days are not caught
+up automatically. Open a previous day to refresh its index normally.
+
+Every automatic run still enumerates the filenames in today's directory and
+its subdirectories. It inspects metadata and probes only new or unsettled files,
+using one probe worker. A file is considered settled after it is observed with
+unchanged size and modification time, has a valid duration, and its modification
+time is at least two minutes old. This is a stability heuristic, not a file-close
+notification: unusual writers that resume after a long pause may require a
+normal timeline refresh. Settled files are skipped before explicit metadata
+queries; underlying NAS/client directory enumeration can still read metadata.
+
+Automatic scans do not reconcile removals or replacements of settled files.
+Opening a day retains the normal full reconciliation (subject to the existing
+refresh cache). Interactive partition requests take priority over the next
+background job; a scan already running finishes first. The initial scan of a
+large day still has to inspect its files, so choose an interval suitable for the
+NAS. Logs report listing time, inspected/new/updated file counts and total
+indexing time to help assess the load.
+
+Automatic daily indexing also enriches recordings with configured HA events.
+It creates no video copies and does not fetch historical days in the background.
+Disabling it stops future scheduled scans; an already running scan can finish.
+The previous recently-viewed-partition watcher is replaced by these explicit
+per-camera schedules; `CTV_WATCHER_SECONDS` no longer controls background scans.
+
 ## Detection events from Home Assistant
 
 Event enrichment is available in the Home Assistant app through the Supervisor
@@ -44,7 +85,7 @@ entered in the Home Assistant app.
 5. Select **Save camera**. Sensor selections, removals and badge position apply
    only on save. Select the camera again later to review its saved associations.
 
-The app reads sensor history when it indexes a requested day and associates
+The app reads sensor history when it indexes a requested or automatically scheduled day and associates
 intervals with that day's recordings. Changing associations makes indexed days
 eligible for refresh when requested again. Merely saving a camera does not
 collect its entire historical archive. A sensor-list connection error preserves
