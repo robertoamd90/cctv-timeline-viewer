@@ -4,8 +4,11 @@
 
 ### Optional current-day automatic indexing
 
-- Configure background indexing and its interval separately for each camera;
-  default off with a 60-minute interval. Apply changes with Save camera.
+- Configure background indexing and its interval once for all date-partitioned
+  cameras in general settings. Default off, with a 60-minute interval and a
+  dedicated Save automatic indexing action.
+- Replace beta 1 per-camera controls. On upgrade the new global policy starts
+  disabled; saved recordings and events are preserved.
 - Scan only the current day in each camera’s timezone, even with no browser open.
   Preserve schedules across restart and recover interrupted partition jobs.
 - List filenames but skip metadata reads and probing for confirmed stable files;
