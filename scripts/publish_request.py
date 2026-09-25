@@ -48,12 +48,18 @@ def main() -> None:
     addon = ADDON_DIRECTORIES[args.channel]
     config_path = addon / "config.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    packaging = args.source_changelog.parent / "packaging" / "homeassistant"
+    source_config = json.loads((packaging / "config.base.json").read_text(encoding="utf-8"))
+    config["panel_admin"] = source_config["panel_admin"]
+    config.setdefault("environment", {})["CTV_HA_ADMIN_ONLY"] = source_config["environment"]["CTV_HA_ADMIN_ONLY"]
     config["version"] = version
     config_path.write_text(
         yaml.safe_dump(config, sort_keys=False, allow_unicode=False),
         encoding="utf-8",
     )
     shutil.copyfile(args.source_changelog, addon / "CHANGELOG.md")
+    for document in ("README.md", "DOCS.md"):
+        shutil.copyfile(packaging / document, addon / document)
 
     published_at = datetime.now(timezone.utc).isoformat()
     image = f"{IMAGES[args.channel]}:{version}"

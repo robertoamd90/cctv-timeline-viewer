@@ -95,6 +95,8 @@ jobs:
             .release-requests/beta.json \
             cctv_viewer_beta/config.yaml \
             cctv_viewer_beta/CHANGELOG.md \
+            cctv_viewer_beta/README.md \
+            cctv_viewer_beta/DOCS.md \
             release-state.json
           git commit -m \
             "Publish CCTV Viewer Beta ${{ steps.request.outputs.version }}"

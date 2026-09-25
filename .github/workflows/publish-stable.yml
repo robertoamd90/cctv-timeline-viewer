@@ -90,6 +90,8 @@ jobs:
             .release-requests/stable.json \
             cctv_viewer/config.yaml \
             cctv_viewer/CHANGELOG.md \
+            cctv_viewer/README.md \
+            cctv_viewer/DOCS.md \
             release-state.json
           git commit -m \
             "Publish CCTV Viewer ${{ steps.request.outputs.version }}"
