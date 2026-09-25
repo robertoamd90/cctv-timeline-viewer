@@ -14,7 +14,9 @@ creating a second video archive.
 - English and Italian interfaces.
 
 Start the app, enable **Show in sidebar**, and configure cameras as a Home
-Assistant administrator. Configure network storage as Media storage first.
+Assistant administrator. Other Home Assistant users can view the timeline and
+play recordings; camera and global settings remain administrator-only.
+Configure network storage as Media storage first.
 
 See the **Documentation** tab for setup, event history requirements, time-offset
 examples and resource settings. Events require daily partition indexing and

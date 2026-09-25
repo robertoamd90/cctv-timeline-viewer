@@ -196,9 +196,10 @@ to resize it; on mobile, the chevron collapses the secondary toolbar rows.
 
 ## Permissions
 
-The app is available only to Home Assistant administrators. Administrators can
-add, edit, remove and manually scan cameras, search recordings and load days
-from the timeline.
+All Home Assistant users can open the app from the sidebar, browse and filter
+the timeline, load days and play recordings. Only administrators see Cameras
+and can change camera or global settings, manually scan cameras or rebuild the
+index. Configuration APIs enforce the same permissions on the server.
 
 ## Data and backups
 

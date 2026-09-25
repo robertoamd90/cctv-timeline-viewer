@@ -2,6 +2,15 @@
 
 ## 0.1.30
 
+### Playback, mobile controls and viewer access
+
+- Continue filtered playback when a video ends before its indexed duration,
+  including buffer recovery; resolve unknown clip ends from completed playback.
+- Prevent text selection on touch controls and add a close button to recording
+  tooltips, with outside-tap and Escape dismissal.
+- Allow Home Assistant non-administrators to open Timeline from the sidebar,
+  while camera and global configuration remain protected by administrator roles.
+
 ### Optional current-day automatic indexing
 
 - Configure background indexing and its interval once for all date-partitioned
