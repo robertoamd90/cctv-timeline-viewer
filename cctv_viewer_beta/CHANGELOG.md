@@ -2,6 +2,13 @@
 
 ## 0.1.30
 
+### Clearer timeline events
+
+- Show event icons only when the visible recording segment has room for every
+  type; use a subtle event indicator at wider time scales.
+- Add a fixed-order summary of event symbols below tooltip previews, with one
+  symbol per type and shortcuts to its first detection. Preserve detailed times.
+
 ### Playback, mobile controls and viewer access
 
 - Continue filtered playback when a video ends before its indexed duration,
