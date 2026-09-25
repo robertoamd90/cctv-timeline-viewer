@@ -5,7 +5,10 @@
   "source_repository": "robertoamd90/cctv-timeline-viewer-core",
   "source_ref": "v0.1.30-beta.4",
   "source_sha": "3c414cc5fd3089a283a0166c9b94e52f776171a3",
-  "status": "pending",
+  "status": "published",
   "requested_at": "2026-09-25T16:54:05.579668+00:00",
-  "candidate": "0.1.30-beta.4"
+  "candidate": "0.1.30-beta.4",
+  "image": "ghcr.io/robertoamd90/cctv-viewer:0.1.30",
+  "image_digest": "sha256:997c8adb6063a77e5b41b3c525b6dd4617685ef30a4c5583de86c15fb3e77605",
+  "published_at": "2026-09-25T16:54:41.814147+00:00"
 }

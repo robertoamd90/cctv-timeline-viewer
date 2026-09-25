@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.1.30
+
+### Clearer timeline events
+
+- Show event icons only when the visible recording segment has room for every
+  type; use a subtle event indicator at wider time scales.
+- Add a fixed-order summary of event symbols below tooltip previews, with one
+  symbol per type and shortcuts to its first detection. Preserve detailed times.
+
+### Playback, mobile controls and viewer access
+
+- Continue filtered playback when a video ends before its indexed duration,
+  including buffer recovery; resolve unknown clip ends from completed playback.
+- Prevent text selection on touch controls and add a close button to recording
+  tooltips, with outside-tap and Escape dismissal.
+- Allow Home Assistant non-administrators to open Timeline from the sidebar,
+  while camera and global configuration remain protected by administrator roles.
+
+### Optional current-day automatic indexing
+
+- Configure background indexing and its interval once for all date-partitioned
+  cameras in general settings. Default off, with a 60-minute interval and a
+  dedicated Save automatic indexing action.
+- Replace beta 1 per-camera controls. On upgrade the new global policy starts
+  disabled; saved recordings and events are preserved.
+- Scan only the current day in each camera’s timezone, even with no browser open.
+  Preserve schedules across restart and recover interrupted partition jobs.
+- List filenames but skip metadata reads and probing for confirmed stable files;
+  retry new or growing files and failed duration probes using one probe worker.
+- Serialize partition scans and prioritize interactive requests. Retain full
+  reconciliation when a day is opened, without background historical scans.
+- Associate HA events during scheduled scans, respect retry intervals on NAS
+  failures, and log indexing workload and timing.
+- Replace the implicit recently-viewed-partition watcher with explicit schedules.
+
 ## 0.1.29
 
 ### Home Assistant detection events
