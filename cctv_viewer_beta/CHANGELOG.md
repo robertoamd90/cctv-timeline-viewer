@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.31
+
+- Fix native playback recovery when the requested position is beyond the real
+  media duration but still inside its indexed recording interval. Clamp native
+  seek targets to the playable tail instead of repeatedly seeking past EOF.
+  Applies with or without event filters; growing transcoded streams retain
+  their original timeline target.
+
 ## 0.1.30
 
 ### Clearer timeline events
