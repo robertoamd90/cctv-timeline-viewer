@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import runpy
 
 import yaml
 
@@ -95,6 +96,8 @@ def main() -> None:
         published_at=published_at,
     )
     request_path.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
+
+    runpy.run_path(str(Path(__file__).with_name("validate_catalog.py")))
 
 
 if __name__ == "__main__":
