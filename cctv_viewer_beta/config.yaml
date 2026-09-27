@@ -1,5 +1,5 @@
 name: CCTV Viewer Beta
-version: 0.1.31-beta.1
+version: 0.1.31-beta.2
 slug: cctv_viewer_beta
 description: Preview builds of CCTV Viewer for testing upcoming features
 url: https://github.com/robertoamd90/cctv-timeline-viewer
@@ -8,7 +8,7 @@ arch:
 - aarch64
 startup: application
 boot: auto
-init: false
+init: true
 legacy: true
 apparmor: true
 stage: experimental
@@ -34,3 +34,4 @@ watchdog: http://[HOST]:[PORT:8000]/api/health
 backup: cold
 backup_exclude:
 - /data/thumbnails/**
+timeout: 30

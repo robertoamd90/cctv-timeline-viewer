@@ -2,6 +2,14 @@
 
 ## 0.1.31
 
+- Enable the Home Assistant container init process and a 30-second stop window.
+- Signal shutdown before draining HTTP requests, reject new indexing work,
+  release queued scans, cancel/reap active probes and thumbnail processes,
+  and close event streams promptly. Await the background scheduler during exit.
+- Roll back interrupted writes and close video/health database connections on
+  errors. Return a retryable 503 for SQLite busy/locked errors and verify WAL
+  mode at startup. Cold backups still interrupt playback.
+
 - Fix native playback recovery when the requested position is beyond the real
   media duration but still inside its indexed recording interval. Clamp native
   seek targets to the playable tail instead of repeatedly seeking past EOF.

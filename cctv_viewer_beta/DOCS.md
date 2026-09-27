@@ -206,3 +206,17 @@ index. Configuration APIs enforce the same permissions on the server.
 Camera configuration and the SQLite index are stored in `/data/ctv.db` and are
 included in Home Assistant backups. Generated thumbnails are excluded because
 they can be regenerated.
+
+### Backup interruptions and shutdown
+
+Home Assistant currently uses **cold backups** for CCTV Viewer: the Supervisor
+stops the app for the backup and starts it again afterwards. Playback is
+interrupted, so frequent backups also interrupt long viewing sessions.
+The app uses the container init process, stops accepting new scans when shutdown
+begins, cancels probe/thumbnail work and closes its database connections. The
+Supervisor allows 30 seconds for shutdown. Interrupted scans are recovered at
+startup; recordings are not duplicated or deleted by this recovery.
+
+A `database_busy` response indicates temporary SQLite lock contention, not proof
+of database corruption. If it persists, inspect both app and Supervisor logs;
+changing backup mode to hot without a consistent SQLite snapshot is unsupported.
