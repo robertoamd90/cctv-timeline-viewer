@@ -94,6 +94,7 @@ jobs:
           git add \
             .release-requests/beta.json \
             cctv_viewer_beta/config.yaml \
+            cctv_viewer_beta/apparmor.txt \
             cctv_viewer_beta/CHANGELOG.md \
             cctv_viewer_beta/README.md \
             cctv_viewer_beta/DOCS.md \

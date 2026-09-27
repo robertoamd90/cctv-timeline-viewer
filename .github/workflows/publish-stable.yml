@@ -89,6 +89,7 @@ jobs:
           git add \
             .release-requests/stable.json \
             cctv_viewer/config.yaml \
+            cctv_viewer/apparmor.txt \
             cctv_viewer/CHANGELOG.md \
             cctv_viewer/README.md \
             cctv_viewer/DOCS.md \

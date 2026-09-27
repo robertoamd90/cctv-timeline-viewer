@@ -50,6 +50,9 @@ def main() -> None:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     packaging = args.source_changelog.parent / "packaging" / "homeassistant"
     source_config = json.loads((packaging / "config.base.json").read_text(encoding="utf-8"))
+    for key in ("init", "timeout"):
+        if key in source_config:
+            config[key] = source_config[key]
     config["panel_admin"] = source_config["panel_admin"]
     config.setdefault("environment", {})["CTV_HA_ADMIN_ONLY"] = source_config["environment"]["CTV_HA_ADMIN_ONLY"]
     config["version"] = version
@@ -60,6 +63,10 @@ def main() -> None:
     shutil.copyfile(args.source_changelog, addon / "CHANGELOG.md")
     for document in ("README.md", "DOCS.md"):
         shutil.copyfile(packaging / document, addon / document)
+
+    apparmor = (packaging / "apparmor.txt").read_text(encoding="utf-8")
+    apparmor = apparmor.replace("profile cctv_viewer ", f"profile {config['slug']} ", 1)
+    (addon / "apparmor.txt").write_text(apparmor, encoding="utf-8")
 
     published_at = datetime.now(timezone.utc).isoformat()
     image = f"{IMAGES[args.channel]}:{version}"
