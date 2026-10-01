@@ -2,6 +2,10 @@
 
 ## 0.1.31
 
+- Advance to the next recording when the decoder freezes on the final buffered
+  frame without reporting playback completion. Verify idle downloads and media
+  progress before inferring the end, including during buffer recovery.
+
 - Enable the Home Assistant container init process and a 30-second stop window.
 - Signal shutdown before draining HTTP requests, reject new indexing work,
   release queued scans, cancel/reap active probes and thumbnail processes,
