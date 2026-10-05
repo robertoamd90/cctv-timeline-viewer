@@ -2,6 +2,10 @@
 
 ## 0.1.31
 
+- Retry transient media loading/decoder failures twice per recording and transport,
+  preserving the timeline and other cameras before trying codec conversion.
+  Refresh failed native URLs so a cached failed response is not reused.
+
 - Normalize fragmented native MP4 recordings into bounded temporary copies with
   a complete seek index, without re-encoding or modifying source recordings.
 - Use consistent online SQLite snapshots for Home Assistant hot backups, avoiding
