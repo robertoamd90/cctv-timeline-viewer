@@ -2,9 +2,16 @@
 
 ## 0.1.31
 
-- Retry transient media loading/decoder failures twice per recording and transport,
-  preserving the timeline and other cameras before trying codec conversion.
-  Refresh failed native URLs so a cached failed response is not reused.
+- Isolate media, admission and recovery failures to the affected recording's
+  tile. Keep the timeline advancing through its indexed interval and continue
+  healthy cameras; select the next recording automatically. Retry failed files
+  only after an explicit playback restart or quality change.
+- Use bounded event polling through Home Assistant Ingress, close live updates
+  when the page is hidden, and deliver standalone SSE events safely from workers.
+- Limit native single-range responses through Ingress to 2 MiB with accurate
+  Content-Range/Content-Length. Preserve full GET and conditional semantics.
+- Keep native MP4 representations consistent under cache pressure and prepare
+  files outside the cache lock, allowing other recordings to continue serving.
 
 - Normalize fragmented native MP4 recordings into bounded temporary copies with
   a complete seek index, without re-encoding or modifying source recordings.
@@ -12,8 +19,6 @@
   backup-driven playback interruptions; restore snapshots automatically.
 - Log the signal that requests server shutdown.
 - Close video file descriptors reliably when abandoned responses are cancelled.
-- Recover one interrupted native connection when the service returns and fall
-  back to compatible H.264 on native decoder errors, preserving other cameras.
 - Revalidate frontend assets after updates and change the native player asset
   version so browsers do not retain a previous beta's player.
 

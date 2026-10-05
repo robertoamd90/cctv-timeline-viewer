@@ -183,8 +183,10 @@ playback on lower-power Home Assistant hardware.
 
 In **Cameras**, administrators can limit concurrent compressed streams and set
 an HLS temporary-space budget (256 MiB by default). The stream limit is shared
-by all viewers; `0` means unlimited. If capacity is exhausted, reduce the number
-of displayed cameras or wait and use the retry action. Pausing and leaving the
+by all viewers; `0` means unlimited. If capacity is exhausted or a file cannot be
+played, the affected tile displays an error while the timeline and healthy
+cameras continue. The next recording is loaded at its normal boundary. Pause
+and resume, or change quality, to retry failed recordings. Pausing and leaving the
 page release incomplete compressed sessions. Temporary streaming files do not
 create another recording archive. A slow camera can pause the synchronized
 group while it buffers, keeping the cameras aligned.
