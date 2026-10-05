@@ -2,6 +2,10 @@
 
 ## 0.1.31
 
+- Cancel abandoned video reads through AnyIO scopes and shield file cleanup.
+  Keep worker capacity and cache pins held until slow disk/network reads return;
+  direct task cancellation previously allowed worker threads to grow past limits.
+
 - Replace one thumbnail thread per scan with a bounded, coalescing queue and a
   single worker. Keep optional thumbnail failures from invalidating a scan.
 - Bound request/I/O pools and concurrent native remuxes; restrict FFmpeg/ffprobe
