@@ -2,6 +2,11 @@
 
 ## 0.1.31
 
+- Exit successfully after SIGTERM during cold backups; require exit code 0
+  in process and container shutdown checks.
+- Stop native video file reads on client disconnect and wait for pending
+  seeks before realigning playback, reducing abandoned Range requests.
+
 - Advance to the next recording when the decoder freezes on the final buffered
   frame without reporting playback completion. Verify idle downloads and media
   progress before inferring the end, including during buffer recovery.
