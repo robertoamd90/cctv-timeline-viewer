@@ -51,11 +51,11 @@ def main() -> None:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     packaging = args.source_changelog.parent / "packaging" / "homeassistant"
     source_config = json.loads((packaging / "config.base.json").read_text(encoding="utf-8"))
-    for key in ("init", "timeout"):
+    for key in ("init", "timeout", "backup", "backup_pre", "backup_post", "backup_exclude"):
         if key in source_config:
             config[key] = source_config[key]
     config["panel_admin"] = source_config["panel_admin"]
-    config.setdefault("environment", {})["CTV_HA_ADMIN_ONLY"] = source_config["environment"]["CTV_HA_ADMIN_ONLY"]
+    config.setdefault("environment", {}).update(source_config["environment"])
     config["version"] = version
     config_path.write_text(
         yaml.safe_dump(config, sort_keys=False, allow_unicode=False),
