@@ -2,6 +2,15 @@
 
 ## 0.1.31
 
+- Normalize fragmented native MP4 recordings into bounded temporary copies with
+  a complete seek index, without re-encoding or modifying source recordings.
+- Use consistent online SQLite snapshots for Home Assistant hot backups, avoiding
+  backup-driven playback interruptions; restore snapshots automatically.
+- Log the signal that requests server shutdown.
+- Close video file descriptors reliably when abandoned responses are cancelled.
+- Recover one interrupted native connection when the service returns and fall
+  back to compatible H.264 on native decoder errors, preserving other cameras.
+
 - Exit successfully after SIGTERM during cold backups; require exit code 0
   in process and container shutdown checks.
 - Stop native video file reads on client disconnect and wait for pending
@@ -17,7 +26,7 @@
   and close event streams promptly. Await the background scheduler during exit.
 - Roll back interrupted writes and close video/health database connections on
   errors. Return a retryable 503 for SQLite busy/locked errors and verify WAL
-  mode at startup. Cold backups still interrupt playback.
+  mode at startup.
 
 - Fix native playback recovery when the requested position is beyond the real
   media duration but still inside its indexed recording interval. Clamp native

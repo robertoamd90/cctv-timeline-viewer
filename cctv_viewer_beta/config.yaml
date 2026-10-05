@@ -1,5 +1,5 @@
 name: CCTV Viewer Beta
-version: 0.1.31-beta.4
+version: 0.1.31-beta.5
 slug: cctv_viewer_beta
 description: Preview builds of CCTV Viewer for testing upcoming features
 url: https://github.com/robertoamd90/cctv-timeline-viewer
@@ -30,8 +30,17 @@ environment:
   CTV_THUMBNAILS: /data/thumbnails
   CTV_SOURCE_ROOTS: /media
   CTV_TRUSTED_PROXIES: 172.30.32.2
+  SQLITE_TMPDIR: /tmp
+  TMPDIR: /tmp
+  CTV_TRANSCODE_THREADS: '1'
+  CTV_HLS_READRATE_FACTOR: '1.5'
+  CTV_HLS_ACTIVE_IDLE_TIMEOUT: '30'
 watchdog: http://[HOST]:[PORT:8000]/api/health
-backup: cold
+backup: hot
 backup_exclude:
-- /data/thumbnails/**
+- '**/thumbnails/**'
+- '**/.ctv-live'
+- '**/.ctv-backup-*'
 timeout: 30
+backup_pre: python -m ctv_server.backup
+backup_post: python -m ctv_server.backup cleanup
