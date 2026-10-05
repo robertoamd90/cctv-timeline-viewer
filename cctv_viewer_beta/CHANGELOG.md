@@ -2,6 +2,12 @@
 
 ## 0.1.31
 
+- Replace one thumbnail thread per scan with a bounded, coalescing queue and a
+  single worker. Keep optional thumbnail failures from invalidating a scan.
+- Bound request/I/O pools and concurrent native remuxes; restrict FFmpeg/ffprobe
+  input threads. Reserve a health-check slot and serve finite event polls without
+  creating worker threads, preventing background work from starving the watchdog.
+
 - Isolate media, admission and recovery failures to the affected recording's
   tile. Keep the timeline advancing through its indexed interval and continue
   healthy cameras; select the next recording automatically. Retry failed files
