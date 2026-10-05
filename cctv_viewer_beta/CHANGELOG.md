@@ -10,6 +10,8 @@
 - Close video file descriptors reliably when abandoned responses are cancelled.
 - Recover one interrupted native connection when the service returns and fall
   back to compatible H.264 on native decoder errors, preserving other cameras.
+- Revalidate frontend assets after updates and change the native player asset
+  version so browsers do not retain a previous beta's player.
 
 - Exit successfully after SIGTERM during cold backups; require exit code 0
   in process and container shutdown checks.
