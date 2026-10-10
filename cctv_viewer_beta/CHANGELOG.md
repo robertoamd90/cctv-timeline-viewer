@@ -2,6 +2,17 @@
 
 ## 0.1.31
 
+- Add opt-in full-session playback logging in Stream, disabled by default.
+  Persist every one-second sample locally across reloads, retain day-load/API
+  timing, buffering boundaries and media/frame progress, and count repeated
+  events without discarding the start. Stop and download the saved session;
+  storage failure visibly marks an incomplete log and stops diagnostics only.
+- Prevent Native end-of-file Play/waiting/pause loops when only the current
+  frame remains available. Recognize a stable, contiguous, fully buffered tail
+  using the existing completion observation and continue to the next file.
+  Document the beta.13 phone failure and controlled decoder reproduction;
+  iPhone full-day completion remains to be verified.
+
 - Keep Native playback warming at 1x behind the freeze frame during buffer
   recovery, then restore the selected playback rate after alignment. Recover
   tiles that lose their buffer while paused and re-request an evicted target
