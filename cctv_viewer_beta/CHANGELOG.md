@@ -2,6 +2,13 @@
 
 ## 0.1.31
 
+- Hold recovered Native decoders at the requested timeline position while other
+  cameras buffer. Reopen a source once if a completed seek leaves the target
+  outside its buffered ranges, preserving the clock and recovery deadline.
+- Keep buffered Native recordings eligible for alignment when another source
+  exhausts recovery. Include the media state and reason before an excluded
+  recording is unloaded in opt-in session diagnostics.
+
 - Add opt-in full-session playback logging in Stream, disabled by default.
   Persist every one-second sample locally across reloads, retain day-load/API
   timing, buffering boundaries and media/frame progress, and count repeated
@@ -10,15 +17,13 @@
 - Prevent Native end-of-file Play/waiting/pause loops when only the current
   frame remains available. Recognize a stable, contiguous, fully buffered tail
   using the existing completion observation and continue to the next file.
-  Document the beta.13 phone failure and controlled decoder reproduction;
-  iPhone full-day completion remains to be verified.
+  Verify recovery with controlled real-decoder tests.
 
 - Keep Native playback warming at 1x behind the freeze frame during buffer
   recovery, then restore the selected playback rate after alignment. Recover
   tiles that lose their buffer while paused and re-request an evicted target
   once per recovery/generation, without repeated seeks or new timeouts.
-  Document the beta.12 physical-phone trace and real-decoder comparisons;
-  completion on the same iPhone remains to be verified.
+  Verify buffer recovery with real-decoder comparisons.
 
 - Ignore rejected Play promises superseded by a pause or a newer Play attempt.
   Handle browser playback-policy refusals explicitly instead of repeatedly
