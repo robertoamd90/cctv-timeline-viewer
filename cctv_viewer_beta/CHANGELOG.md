@@ -2,6 +2,13 @@
 
 ## 0.1.31
 
+- Keep Native playback warming at 1x behind the freeze frame during buffer
+  recovery, then restore the selected playback rate after alignment. Recover
+  tiles that lose their buffer while paused and re-request an evicted target
+  once per recovery/generation, without repeated seeks or new timeouts.
+  Document the beta.12 physical-phone trace and real-decoder comparisons;
+  completion on the same iPhone remains to be verified.
+
 - Ignore rejected Play promises superseded by a pause or a newer Play attempt.
   Handle browser playback-policy refusals explicitly instead of repeatedly
   pausing healthy buffered decoders with Play still active.
