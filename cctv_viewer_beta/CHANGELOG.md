@@ -2,6 +2,19 @@
 
 ## 0.1.31
 
+- Keep buffering alignment and timeline drift thresholds consistent for
+  accelerated MP4/HLS streams. Fix a reproduced WebKit HLS Pause/Play loop
+  that stopped fully buffered videos while Play remained active at 16x.
+  Preserve the native playback drift thresholds.
+- Reset buffering state together with recovery deadlines after a seek, restore
+  missing deadlines on an active barrier, and wait for pending seeks before
+  treating warming videos as ready. Add real-decoder benchmark tools and
+  document measured progress, transitions, resource use and remaining limits.
+
+- Detect buffered decoders that stop advancing without reporting an error.
+  Isolate the frozen recording after eight seconds and keep the timeline
+  advancing even when every camera freezes while Play remains active.
+
 - Cancel abandoned video reads through AnyIO scopes and shield file cleanup.
   Keep worker capacity and cache pins held until slow disk/network reads return;
   direct task cancellation previously allowed worker threads to grow past limits.
