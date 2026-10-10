@@ -5,7 +5,7 @@
     "status": "published",
     "source_repository": "robertoamd90/cctv-timeline-viewer-core",
     "source_ref": "v0.1.30-beta.4",
-    "source_sha": "3c414cc5fd3089a283a0166c9b94e52f776171a3",
+    "source_sha": "7db4e0b1e2d46afa2eafb08fabc9a8d61b07e163",
     "image": "ghcr.io/robertoamd90/cctv-viewer:0.1.30",
     "image_digest": "sha256:997c8adb6063a77e5b41b3c525b6dd4617685ef30a4c5583de86c15fb3e77605",
     "published_at": "2026-09-25T16:54:41.814147+00:00",
@@ -16,7 +16,7 @@
     "status": "published",
     "source_repository": "robertoamd90/cctv-timeline-viewer-core",
     "source_ref": "v0.1.31-beta.14",
-    "source_sha": "8370cb730fc8a7b0c9bbdbcaae727b073e17fc1d",
+    "source_sha": "34353e46e2f4e56bfabcedc8fa571bc41101f533",
     "image": "ghcr.io/robertoamd90/cctv-viewer-beta:0.1.31-beta.14",
     "image_digest": "sha256:722aeeda43f98d625b2e5bf7e109402b29426036acd91ccc23434c71814bd8e3",
     "published_at": "2026-10-10T14:40:18.771420+00:00"
