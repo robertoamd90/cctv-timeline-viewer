@@ -2,6 +2,13 @@
 
 ## 0.1.31
 
+- Ignore rejected Play promises superseded by a pause or a newer Play attempt.
+  Handle browser playback-policy refusals explicitly instead of repeatedly
+  pausing healthy buffered decoders with Play still active.
+- Add bounded, local playback diagnostics downloadable from Stream, including
+  clock, media and frame progress, buffering, seeks and rejected Play attempts.
+  Document real-decoder tests and remaining physical-phone verification limits.
+
 - Keep buffering alignment and timeline drift thresholds consistent for
   accelerated MP4/HLS streams. Fix a reproduced WebKit HLS Pause/Play loop
   that stopped fully buffered videos while Play remained active at 16x.
