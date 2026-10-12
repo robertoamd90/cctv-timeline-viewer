@@ -12,13 +12,13 @@
     "candidate": "0.1.30-beta.4"
   },
   "beta": {
-    "version": "0.1.31-beta.15",
+    "version": "0.1.31-beta.16",
     "status": "published",
     "source_repository": "robertoamd90/cctv-timeline-viewer-core",
-    "source_ref": "v0.1.31-beta.15",
-    "source_sha": "aed37d581eb540235c8cd65500d8338f12979e6f",
-    "image": "ghcr.io/robertoamd90/cctv-viewer-beta:0.1.31-beta.15",
-    "image_digest": "sha256:aa3498770d8aad629ac2c07ef6592d3f06e52afbe8942ed64a0cc35530e3808a",
-    "published_at": "2026-10-10T20:32:09.445165+00:00"
+    "source_ref": "v0.1.31-beta.16",
+    "source_sha": "9d67f4fec76f8879da86f15dd5b52890ec4b293c",
+    "image": "ghcr.io/robertoamd90/cctv-viewer-beta:0.1.31-beta.16",
+    "image_digest": "sha256:d50bae90f04f255aee48e8372fbe6f4f82aee9d51ff000c21276e682939e0185",
+    "published_at": "2026-10-12T19:02:23.904281+00:00"
   }
 }

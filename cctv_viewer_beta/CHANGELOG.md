@@ -2,6 +2,26 @@
 
 ## 0.1.31
 
+- Wait for the current source metadata instead of trusting retained decoder
+  state from the previous file. Restore the intended playback rate after load.
+
+- Honor complete Native HTTP Range requests through Home Assistant ingress,
+  retaining disconnect-aware reads and worker/cache protection. Configure Auto
+  preload before loading active Native sources rather than changing it afterward.
+- Keep partial Native downloads eligible while media delivery is progressing;
+  idle delivery, lost targets and buffered decoder freezes remain bounded.
+
+- Synchronize buffered Native startup drift by holding only leading cameras.
+  Keep lagging decoder startup active instead of repeatedly pausing and seeking
+  every camera while the timeline remains frozen.
+- Preserve a decoded Native startup fragment while accumulating the buffer
+  needed for accelerated playback. Detect stalled paused prefetch and prime at
+  short decoding pulses; avoid pause/prime loops when pausing reduces available data.
+  Keep the requested timeline position, resume threshold and recovery deadline.
+- Require future Native decoder data before resuming from a retained frame.
+- Record build, viewport, samples and playback-run summaries for each page of
+  a persistent diagnostic session, including per-run recovery counter deltas.
+
 - Hold recovered Native decoders at the requested timeline position while other
   cameras buffer. Reopen a source once if a completed seek leaves the target
   outside its buffered ranges, preserving the clock and recovery deadline.
