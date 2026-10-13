@@ -2,6 +2,10 @@
 
 ## 0.1.31
 
+- Reopen a Native source once when a completed seek leaves a partial buffered
+  target and prefetch stays idle after its decoding pulse. Preserve the original
+  target and recovery deadline; active delivery and growing buffers remain eligible.
+
 - Retry a Native decode error once per recording and playback epoch before
   isolating the tile, preserving the target and original recovery deadline.
 - Stop partial-buffer warming pulses on the first decoded advance with guarded
