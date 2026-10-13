@@ -2,6 +2,10 @@
 
 ## 0.1.31
 
+- Defer timeline drawing during day changes until the new zoom range is ready.
+  Partition-progress updates and queued pan renders no longer throw while the
+  previous timeline is still present and its range has been cleared.
+
 - Reopen a Native source once when a completed seek leaves a partial buffered
   target and prefetch stays idle after its decoding pulse. Preserve the original
   target and recovery deadline; active delivery and growing buffers remain eligible.
