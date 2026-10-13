@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.32
+
+### Camera audio
+
+- Add a speaker toggle to each camera, with only one camera audible at a time.
+  Audio starts muted and is available only at 1×; changing speed clears the
+  selection. Keep audio silent during seeks and buffering, and retain the chosen
+  camera across consecutive recordings.
+- Complete HLS alignment seeks while decoding silently during buffer recovery.
+- Include optional AAC audio in normal-speed MP4/HLS streams. Browser audio
+  policy refusals restore silent playback instead of stopping the timeline.
+
 ## 0.1.31
 
 ### Playback and synchronization

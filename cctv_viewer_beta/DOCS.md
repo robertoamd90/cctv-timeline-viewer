@@ -227,3 +227,16 @@ startup; recordings are not duplicated or deleted by this recovery.
 A `database_busy` response indicates temporary SQLite lock contention, not proof
 of database corruption. If it persists, inspect both app and Supervisor logs;
 the online snapshot hook must complete successfully for a valid app backup.
+
+## Camera audio
+
+Each camera has a speaker button. Audio starts muted; at 1×, press a speaker
+once to listen to that camera and again to mute it. Selecting another speaker
+mutes the previous camera. Changing speed clears the selection, so returning
+to 1× does not automatically enable audio.
+
+The selection follows consecutive recordings from the same camera. Audio stays
+silent during pauses, seeks, buffering and recording gaps; it never switches
+to another camera automatically. Native uses the recording's existing audio;
+Balanced and Fast include optional AAC audio at 1×. A recording without an audio
+track remains silent. Phone volume is controlled by the device.
