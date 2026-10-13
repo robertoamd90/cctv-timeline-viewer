@@ -10,6 +10,8 @@ profile cctv_viewer flags=(attach_disconnected,mediate_deleted) {
   network inet6 dgram,
   signal,
 
+  /sbin/docker-init ixr,
+  /usr/sbin/docker-init ixr,
   /usr/local/bin/python3.12 ix,
   /usr/local/lib/** mr,
   /usr/bin/ffmpeg ixr,

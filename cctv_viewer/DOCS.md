@@ -183,8 +183,10 @@ playback on lower-power Home Assistant hardware.
 
 In **Cameras**, administrators can limit concurrent compressed streams and set
 an HLS temporary-space budget (256 MiB by default). The stream limit is shared
-by all viewers; `0` means unlimited. If capacity is exhausted, reduce the number
-of displayed cameras or wait and use the retry action. Pausing and leaving the
+by all viewers; `0` means unlimited. If capacity is exhausted or a file cannot be
+played, the affected tile displays an error while the timeline and healthy
+cameras continue. The next recording is loaded at its normal boundary. Pause
+and resume, or change quality, to retry failed recordings. Pausing and leaving the
 page release incomplete compressed sessions. Temporary streaming files do not
 create another recording archive. A slow camera can pause the synchronized
 group while it buffers, keeping the cameras aligned.
@@ -206,3 +208,22 @@ index. Configuration APIs enforce the same permissions on the server.
 Camera configuration and the SQLite index are stored in `/data/ctv.db` and are
 included in Home Assistant backups. Generated thumbnails are excluded because
 they can be regenerated.
+
+### Online backups and shutdown
+
+Home Assistant uses **hot backups** for CCTV Viewer. Before archiving app data,
+the backup hook creates a consistent SQLite snapshot at `/data/ctv.db.backup`
+using SQLite's online backup API; playback and indexing continue. Restored
+backups are identified by the absence of the excluded `.ctv-live` marker and
+use the coherent snapshot instead of any live WAL files copied during archiving.
+The post-backup hook removes the snapshot. Backups made while the app is stopped
+retain its live database; restarting a running installation never replaces its
+database with an older snapshot.
+The app uses the container init process, stops accepting new scans when shutdown
+begins, cancels probe/thumbnail work and closes its database connections. The
+Supervisor allows 30 seconds for shutdown. Interrupted scans are recovered at
+startup; recordings are not duplicated or deleted by this recovery.
+
+A `database_busy` response indicates temporary SQLite lock contention, not proof
+of database corruption. If it persists, inspect both app and Supervisor logs;
+the online snapshot hook must complete successfully for a valid app backup.
