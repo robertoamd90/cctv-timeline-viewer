@@ -2,140 +2,51 @@
 
 ## 0.1.31
 
-- Defer timeline drawing during day changes until the new zoom range is ready.
-  Partition-progress updates and queued pan renders no longer throw while the
-  previous timeline is still present and its range has been cleared.
+### Playback and synchronization
 
-- Reopen a Native source once when a completed seek leaves a partial buffered
-  target and prefetch stays idle after its decoding pulse. Preserve the original
-  target and recovery deadline; active delivery and growing buffers remain eligible.
+- Fix indefinite buffering after seeks and a WebKit Pause/Play loop during
+  accelerated MP4/HLS playback. Restore the selected speed when Native sources
+  load or playback resumes asynchronously.
+- Improve Native buffer recovery and camera alignment, preserving the requested
+  timeline position and available decoded data while other cameras catch up.
+  Retry stalled prefetch or an evicted seek target without repeated seek loops.
+- Continue to the next recording when playback reaches the final buffered frame
+  or the indexed recording interval extends beyond the playable media duration.
+- Retry Native decoding failures once before isolating the affected recording.
+  Keep healthy cameras and the timeline advancing when a recording fails or a
+  buffered decoder stops progressing; resume that camera at its next recording.
+- Handle browser playback-policy refusals explicitly and ignore obsolete Play
+  rejections after a pause or a newer playback request.
 
-- Retry a Native decode error once per recording and playback epoch before
-  isolating the tile, preserving the target and original recovery deadline.
-- Stop partial-buffer warming pulses on the first decoded advance with guarded
-  video-frame callbacks; retain existing fragments immediately on recovery.
-  Do not repeat a pulse until buffered data grows. Reapply the Native playback
-  rate after an asynchronous Play handshake to avoid stale effective rates.
-- Keep one owner of ASGI disconnect events when upstream FileResponse also
-  monitors receive, retaining shielded reads and bounded worker capacity.
-- Include sanitized media-error messages and Native reload reasons in the
-  opt-in session trace.
+### Media delivery and resource use
 
-- Wait for the current source metadata instead of trusting retained decoder
-  state from the previous file. Restore the intended playback rate after load.
+- Honor complete Native HTTP Range requests through Home Assistant Ingress and
+  stop abandoned video reads on disconnect, closing files reliably while keeping
+  slow reads within worker limits.
+- Bound background thumbnail work, I/O pools, media probes and Native remuxes,
+  preserving capacity for health checks under load.
+- Prepare fragmented Native MP4 recordings in bounded temporary copies with a
+  complete seek index, without re-encoding or modifying source recordings.
+  Keep media representations consistent under cache pressure.
+- Use bounded event polling through Ingress and suspend live updates when the
+  page is hidden.
 
-- Honor complete Native HTTP Range requests through Home Assistant ingress,
-  retaining disconnect-aware reads and worker/cache protection. Configure Auto
-  preload before loading active Native sources rather than changing it afterward.
-- Keep partial Native downloads eligible while media delivery is progressing;
-  idle delivery, lost targets and buffered decoder freezes remain bounded.
+### Optional playback diagnostics
 
-- Synchronize buffered Native startup drift by holding only leading cameras.
-  Keep lagging decoder startup active instead of repeatedly pausing and seeking
-  every camera while the timeline remains frozen.
-- Preserve a decoded Native startup fragment while accumulating the buffer
-  needed for accelerated playback. Detect stalled paused prefetch and prime at
-  short decoding pulses; avoid pause/prime loops when pausing reduces available data.
-  Keep the requested timeline position, resume threshold and recovery deadline.
-- Require future Native decoder data before resuming from a retained frame.
-- Record build, viewport, samples and playback-run summaries for each page of
-  a persistent diagnostic session, including per-run recovery counter deltas.
+- Add full-session logging in Stream, disabled by default, with local persistence
+  across page reloads and a downloadable JSON log.
+- Record day-loading times, playback speed, buffering, camera progress, seeks
+  and media errors to help investigate interruptions. Report storage failures
+  and incomplete logs without stopping playback.
 
-- Hold recovered Native decoders at the requested timeline position while other
-  cameras buffer. Reopen a source once if a completed seek leaves the target
-  outside its buffered ranges, preserving the clock and recovery deadline.
-- Keep buffered Native recordings eligible for alignment when another source
-  exhausts recovery. Include the media state and reason before an excluded
-  recording is unloaded in opt-in session diagnostics.
+### Home Assistant and timeline
 
-- Add opt-in full-session playback logging in Stream, disabled by default.
-  Persist every one-second sample locally across reloads, retain day-load/API
-  timing, buffering boundaries and media/frame progress, and count repeated
-  events without discarding the start. Stop and download the saved session;
-  storage failure visibly marks an incomplete log and stops diagnostics only.
-- Prevent Native end-of-file Play/waiting/pause loops when only the current
-  frame remains available. Recognize a stable, contiguous, fully buffered tail
-  using the existing completion observation and continue to the next file.
-  Verify recovery with controlled real-decoder tests.
-
-- Keep Native playback warming at 1x behind the freeze frame during buffer
-  recovery, then restore the selected playback rate after alignment. Recover
-  tiles that lose their buffer while paused and re-request an evicted target
-  once per recovery/generation, without repeated seeks or new timeouts.
-  Verify buffer recovery with real-decoder comparisons.
-
-- Ignore rejected Play promises superseded by a pause or a newer Play attempt.
-  Handle browser playback-policy refusals explicitly instead of repeatedly
-  pausing healthy buffered decoders with Play still active.
-- Add bounded, local playback diagnostics downloadable from Stream, including
-  clock, media and frame progress, buffering, seeks and rejected Play attempts.
-  Document real-decoder tests and remaining physical-phone verification limits.
-
-- Keep buffering alignment and timeline drift thresholds consistent for
-  accelerated MP4/HLS streams. Fix a reproduced WebKit HLS Pause/Play loop
-  that stopped fully buffered videos while Play remained active at 16x.
-  Preserve the native playback drift thresholds.
-- Reset buffering state together with recovery deadlines after a seek, restore
-  missing deadlines on an active barrier, and wait for pending seeks before
-  treating warming videos as ready. Add real-decoder benchmark tools and
-  document measured progress, transitions, resource use and remaining limits.
-
-- Detect buffered decoders that stop advancing without reporting an error.
-  Isolate the frozen recording after eight seconds and keep the timeline
-  advancing even when every camera freezes while Play remains active.
-
-- Cancel abandoned video reads through AnyIO scopes and shield file cleanup.
-  Keep worker capacity and cache pins held until slow disk/network reads return;
-  direct task cancellation previously allowed worker threads to grow past limits.
-
-- Replace one thumbnail thread per scan with a bounded, coalescing queue and a
-  single worker. Keep optional thumbnail failures from invalidating a scan.
-- Bound request/I/O pools and concurrent native remuxes; restrict FFmpeg/ffprobe
-  input threads. Reserve a health-check slot and serve finite event polls without
-  creating worker threads, preventing background work from starving the watchdog.
-
-- Isolate media, admission and recovery failures to the affected recording's
-  tile. Keep the timeline advancing through its indexed interval and continue
-  healthy cameras; select the next recording automatically. Retry failed files
-  only after an explicit playback restart or quality change.
-- Use bounded event polling through Home Assistant Ingress, close live updates
-  when the page is hidden, and deliver standalone SSE events safely from workers.
-- Limit native single-range responses through Ingress to 2 MiB with accurate
-  Content-Range/Content-Length. Preserve full GET and conditional semantics.
-- Keep native MP4 representations consistent under cache pressure and prepare
-  files outside the cache lock, allowing other recordings to continue serving.
-
-- Normalize fragmented native MP4 recordings into bounded temporary copies with
-  a complete seek index, without re-encoding or modifying source recordings.
-- Use consistent online SQLite snapshots for Home Assistant hot backups, avoiding
-  backup-driven playback interruptions; restore snapshots automatically.
-- Log the signal that requests server shutdown.
-- Close video file descriptors reliably when abandoned responses are cancelled.
-- Revalidate frontend assets after updates and change the native player asset
-  version so browsers do not retain a previous beta's player.
-
-- Exit successfully after SIGTERM during cold backups; require exit code 0
-  in process and container shutdown checks.
-- Stop native video file reads on client disconnect and wait for pending
-  seeks before realigning playback, reducing abandoned Range requests.
-
-- Advance to the next recording when the decoder freezes on the final buffered
-  frame without reporting playback completion. Verify idle downloads and media
-  progress before inferring the end, including during buffer recovery.
-
-- Enable the Home Assistant container init process and a 30-second stop window.
-- Signal shutdown before draining HTTP requests, reject new indexing work,
-  release queued scans, cancel/reap active probes and thumbnail processes,
-  and close event streams promptly. Await the background scheduler during exit.
-- Roll back interrupted writes and close video/health database connections on
-  errors. Return a retryable 503 for SQLite busy/locked errors and verify WAL
-  mode at startup.
-
-- Fix native playback recovery when the requested position is beyond the real
-  media duration but still inside its indexed recording interval. Clamp native
-  seek targets to the playable tail instead of repeatedly seeking past EOF.
-  Applies with or without event filters; growing transcoded streams retain
-  their original timeline target.
+- Use consistent SQLite snapshots for hot backups and restore them automatically.
+  Improve database contention handling and recovery from interrupted writes.
+- Shut down indexing, media processes and event streams cleanly during addon
+  stops and cold backups, with container init and a 30-second stop window.
+- Prevent timeline rendering errors while a new day is loading, and revalidate
+  frontend assets after updates.
 
 ## 0.1.30
 
