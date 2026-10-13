@@ -2,6 +2,17 @@
 
 ## 0.1.31
 
+- Retry a Native decode error once per recording and playback epoch before
+  isolating the tile, preserving the target and original recovery deadline.
+- Stop partial-buffer warming pulses on the first decoded advance with guarded
+  video-frame callbacks; retain existing fragments immediately on recovery.
+  Do not repeat a pulse until buffered data grows. Reapply the Native playback
+  rate after an asynchronous Play handshake to avoid stale effective rates.
+- Keep one owner of ASGI disconnect events when upstream FileResponse also
+  monitors receive, retaining shielded reads and bounded worker capacity.
+- Include sanitized media-error messages and Native reload reasons in the
+  opt-in session trace.
+
 - Wait for the current source metadata instead of trusting retained decoder
   state from the previous file. Restore the intended playback rate after load.
 
