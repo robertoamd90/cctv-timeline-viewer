@@ -1,14 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "source_repository": "robertoamd90/cctv-timeline-viewer-core",
-  "source_ref": "v0.1.31-beta.19",
-  "source_sha": "83c65b6a23a21d8e8a00cdd8652b0d0013865469",
-  "status": "published",
-  "requested_at": "2026-10-13T18:32:27.004378+00:00",
-  "candidate": "0.1.31-beta.19",
-  "image": "ghcr.io/robertoamd90/cctv-viewer:0.1.31",
-  "image_digest": "sha256:30a2aa4889a51c1fb6bdc694bfb697c971d25a77074a2fd5049813ef2c0fd807",
-  "published_at": "2026-10-13T18:32:54.448965+00:00"
+  "source_ref": "v0.1.32-beta.1",
+  "source_sha": "95db145c4ea707cc56a1e66fbe1d6a349aa1abba",
+  "status": "pending",
+  "requested_at": "2026-10-16T12:53:44.715609+00:00",
+  "candidate": "0.1.32-beta.1"
 }
